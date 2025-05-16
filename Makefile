@@ -25,13 +25,13 @@ else
 	endif
 endif
 
-#SRC_DIRS := ./
-SRC_DIRS := $(PROJECT_DIR)
+
 SRC_DIRS += $(PROJECT_DIR)/Source
 #SRC_DIRS += $(shell find $(PROJECT_DIR)/Source -mindepth 1 -type d -printf "%P\n")
 SRC_DIRS += $(shell find $(PROJECT_DIR)/Source -mindepth 1 -type d -printf "$(PROJECT_DIR)/Source/%P\n")
 # finding all subdirectories under 'Source'. mindepth=1 prevents it from printing an empty line (for ./Source itself)
 # the final part of the line appends the result ("%P") to "./Source/", and then seperates them with a space (instead of "\n")
+SRC_DIRS += $(PROJECT_DIR)/Bromeon/Thor_src
 
 #BUILD_SUBDIRS := $(patsubst $(PROJECT_DIR)%, ./build%, $(SRC_DIRS))
 BUILD_SUBDIRS := $(patsubst $(PROJECT_DIR)%,$(BUILD_DIR)%,$(SRC_DIRS))
@@ -50,6 +50,7 @@ SRCS := $(shell find $(PROJECT_DIR) -mindepth 1 -name '*.cpp' -printf "%P\n")
 # String substitution for every C/C++ file.
 # As an example, hello.cpp turns into ./build/hello.cpp.o
 OBJS := $(SRCS:%.cpp=$(BUILD_DIR)/%.o)
+#OBJS := $(patsubst $(PROJECT_DIR)/%,%,$(OBJS))
 
 # String substitution (suffix version without %).
 # As an example, ./build/hello.cpp.o turns into ./build/hello.cpp.d
@@ -59,8 +60,11 @@ DEPS := $(OBJS:.o=.d)
 CXX := g++-13
 
 # adding subdirectories as paths to search for includes; -iquote only applies to includes that use: "x.h" instead of: <x.h>
-CPPFLAGS := $(addprefix -iquote , $(SRC_DIRS))
+#CPPFLAGS := $(addprefix -iquote , $(SRC_DIRS))
 # this makes the output totally unreadable, but whatever.
+
+# stripping the project-directory from each path - infinitely more readable
+CPPFLAGS := $(addprefix -iquote , $(patsubst $(PROJECT_DIR)/%,%,$(SRC_DIRS)))
 
 # additional headers for Thor/Aurora/effolkronium; -isystem only applies to unquoted includes: <x.h>
 CPPFLAGS += -isystem "${PROJECT_DIR}/Bromeon/" -isystem "${PROJECT_DIR}/"
@@ -73,7 +77,7 @@ CPPFLAGS += -isystem "${PROJECT_DIR}/Bromeon/" -isystem "${PROJECT_DIR}/"
 
 #use "-std=c++2a" instead of "-std=c++20" for g++ versions 9 and lower
 #CPPFLAGS += -MMD -MP -std=c++20 -fmax-errors=1 -pipe -march=native -mtune=native -pthread
-CPPFLAGS += -MMD -MP -std=c++23 -pipe -march=native -mtune=native -pthread
+CPPFLAGS += -MMD -MP -std=c++23 -pipe -march=native -mtune=native
 # "pthread" is required when you use std::thread. Yes, it really is a compiler-option; it sets the flags for both the preprocessor and linker.
 # "pipe" option just makes the compilation faster; it tells gcc to use pipes instead of temp-files.
 # "-march=native" option generates code optimized for your CPU's architecture. Obviously non-portable.
@@ -106,12 +110,12 @@ endif
 # the order that SFML is linked is important! sfml-system must be last!
 LDFLAGS := -lsfml-graphics -lsfml-window -lsfml-audio# -lsfml-network
 LDFLAGS += -lsfml-system
-LDFLAGS += -lthor
+#LDFLAGS += -lthor
 #LDFLAGS += -pg #generates profiling information. Also has to be added to CPPFLAGS???
 ##### I don't seem to have debug libraries compiled/installed for anything, or static libraries. Whatever.
 
 # linker flags so that libthor.so can be found
-LDFLAGS += -Wl,-rpath,${PROJECT_DIR}
+#LDFLAGS += -Wl,-rpath,${PROJECT_DIR}
 
 #http://gcc.gnu.org/onlinedocs/gccint/LTO-Overview.html#LTO-Overview
 # http://gcc.gnu.org/onlinedocs/gcc/Optimize-Options.html
@@ -125,7 +129,7 @@ LDFLAGS += -flto=auto -fuse-linker-plugin
 # ffat-lto-objects: Fat LTO objects are object files that contain both the intermediate language and the object code. This makes them usable for both LTO linking and normal linking. Also required for creating static or dynamic libraries?? And for some debug info?? This option is effective only when compiling with -flto and is ignored at link time. Disabled by default.
 # fno-fat-lto-objects It compiles faster, but it makes normal linking (at least one file compiled without the lto flag) imposissble. Linking with -flto should produce exactly the same result regardless of whether the source files were compiled with 'ffat-lto-objects'.
 # fat-LTO object-files are required for objdump to display anything useful.
-# -fuse-linker-plugin - enables LTO
+# fuse-linker-plugin: enables LTO
 
 CPPFLAGS += -Wall -Wextra -Wpedantic# -Wno-sign-compare -Werror
 #"Wall" and "Wextra" enables all warnings, "Werror" treats warnings as errors
@@ -159,7 +163,10 @@ symlink: $(BUILD_DIR)/$(TARGET_EXEC)
 #.DEFAULT_GOAL := $(BUILD_DIR)/$(TARGET_EXEC)
 # The final build step; linking obj files
 $(BUILD_DIR)/$(TARGET_EXEC): $(BUILD_SUBDIRS) $(OBJS)
-	$(CXX) -L${PROJECT_DIR} $(CPPFLAGS) $(OBJS) -o $@ $(LDFLAGS)
+	$(CXX) $(CPPFLAGS) $(OBJS) -o $@ $(LDFLAGS)
+
+# add project-dir to linking path when using libthor.so
+# $(CXX) -L${PROJECT_DIR} $(CPPFLAGS) $(OBJS) -o $@ $(LDFLAGS)
 
 # Adding Makefile as a dependency forces the entire project to be rebuilt when this file is modified
 # Build step for C++ source
@@ -209,6 +216,8 @@ printall:
 	@echo "$(OBJS) \n"
 	# printing DEPS
 	@echo "$(DEPS) \n"
+	# printing CPPFLAGS
+	@echo "$(CPPFLAGS) \n"
 
 #	mkdir -p $^
 # $^ returns names of all dependencies
