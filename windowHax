@@ -1,0 +1,35 @@
+#!/bin/bash
+
+xdotool key "alt+F7"
+
+if [ "$1" = up ]
+then 
+#echo "Bypassing edge: Top"
+xdotool mousemove_relative 0 -80
+fi
+
+if [ "$1" = left ]
+then 
+#echo "Bypassing edge: Left"
+xdotool mousemove_relative -- -80 0 #double dash is required if the first number is negative
+fi
+
+if [ "$1" = down ]
+then 
+#echo "Bypassing edge: Bottom"
+xdotool mousemove_relative 0 80
+fi
+
+if [ "$1" = right ]
+then 
+#echo "Bypassing edge: Right"
+xdotool mousemove_relative 80 0
+fi
+
+#releasing windowmove mode
+#xdotool sleep 0.1 #without this, it will often exit before the enter press
+xdotool key "Return"
+#xdotool key "alt+F7"
+#we don't need to break the alt+f7 manually; it's automatically broken by any scrollwheel motion
+
+	exit;

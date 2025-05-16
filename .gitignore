@@ -1,0 +1,22 @@
+.git/
+.vscode/
+
+# build folders
+build/
+build_DEBUG/
+build_WITHASSERTS/
+build_NOASSERTS/
+build_RELEASE/
+
+# symlinks
+run
+Chess
+Chess_DEBUG
+Chess_WITHASSERTS
+Chess_NOASSERTS
+Chess_RELEASE
+
+# exclude custom configs, track default
+Config/*
+!Config/Defaults.conf
+
