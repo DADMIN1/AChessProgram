@@ -19,11 +19,12 @@ int sqOutlineSignLight{-1};
 
 sf::Color coordcolorLight{ lightsqColor };
 sf::Color coordcolorDark{ darksqColor };
-int coordTextsize{16};
-std::vector<sf::Text> coordText; //previously in main
-std::vector<int> darkSqIDs;
-std::vector<int> lightSqIDs;
-sequenced_set wasModified;
+int coordTextsize{64};
+float coordTextscale{0.25f};
+std::vector<sf::Text> coordText{}; //previously in main
+std::vector<int> darkSqIDs{};
+std::vector<int> lightSqIDs{};
+sequenced_set wasModified{};
 
 bool isLSDmode{false};
 //lastmoveHighlights colors?
@@ -39,8 +40,8 @@ sf::FloatRect CoordtextcolorTogglebox{ 228, 129, 20, 20 }; //bounding boxes
 
 sf::Text colorWindowText{}; //tells you which color you're editing
 
-std::vector<sliderClass> colorWindowSliders{};
-sliderClass* selectedSlider{nullptr};
+std::vector<SliderClass> colorWindowSliders{};
+SliderClass* selectedSlider{nullptr};
 
 //the variables associated with various SliderIDs
 std::map<std::pair<SliderID,subSliderID>,sf::Uint8&> getColorAssociationMap()
@@ -68,7 +69,7 @@ std::map<std::pair<SliderID,subSliderID>,sf::Uint8&> getColorAssociationMap()
 	//Insert/remove/swap appropriate associative values based on the Linked variables
 }
 
-void sliderClass::getValueFromAssociated()
+void SliderClass::getValueFromAssociated()
 {
 	std::map<std::pair<SliderID,subSliderID>,sf::Uint8&> CAmap{ getColorAssociationMap() };
 /* 	if (isCoordtextColorlinked)
@@ -89,15 +90,13 @@ void sliderClass::getValueFromAssociated()
 	} */
 
 	if (sliderName == outlineThicknessD)
-	{ currentValue = (sqOutlineThicknessD * 10); }
+	{ currentValue = (sqOutlineThicknessD * 10.f); }
 	else if (sliderName == outlineThicknessL)
-	{ currentValue = (sqOutlineThicknessL * 10); }
+	{ currentValue = (sqOutlineThicknessL * 10.f); }
 	else if (sliderName == coordSize)
-		currentValue = (coordTextsize * 5);
+		currentValue = 256.f * coordTextscale;
 	else
 		currentValue = (CAmap.find({ sliderName, subName })->second);
-
-	currentValueFloat = currentValue;
 
 	sliderObj.setPosition(currentValue + minXoffset, sliderObj.getPosition().y);
 	sliderBoundingbox = sliderObj.getGlobalBounds();
@@ -129,7 +128,7 @@ void SetSlidersFromAssociated(SliderID ID)
 	return;
 }
 
-void sliderClass::updateAssociated()
+void SliderClass::updateAssociated()
 {
 	std::map<std::pair<SliderID, subSliderID>, sf::Uint8&> CAmap{getColorAssociationMap()};
 
@@ -139,51 +138,51 @@ void sliderClass::updateAssociated()
 	switch (sliderName)
 	{
 		case outlineThicknessD:
-		sqOutlineThicknessD = (currentValue / 10); //range of [0-25.5]
+		sqOutlineThicknessD = (currentValue * 0.1f); //range of [0-25.5]
 		break;
 
 		case outlineThicknessL:
-			sqOutlineThicknessL = (currentValue / 10); //range of [0-25.5]
-			break;
+		sqOutlineThicknessL = (currentValue * 0.1f); //range of [0-25.5]
+		break;
 
-	case coordSize:
-	{
-		coordTextsize = (currentValue / 5); //range of [0-51]
-		for (auto& T : coordText)
+		case coordSize:
 		{
-			T.setCharacterSize(coordTextsize);
+			//coordTextsize = (currentValue / 5.f); //range of [0-51]
+			coordTextscale = currentValue * 0.00390625f; // 1/256
+			for (auto& T : coordText)
+			{
+				T.setScale(coordTextscale, coordTextscale);
+				//T.setCharacterSize(coordTextsize);
+			}
+			break;
 		}
-		break;
-	}
 
-	case coordtextLight:
-	{
-		for (auto& I : darkSqIDs)
-		{ coordText[I].setFillColor(coordcolorLight); }
-		break;
-	}
+		case coordtextLight:
+		{
+			for (auto& I : darkSqIDs)
+			{ coordText[I].setFillColor(coordcolorLight); }
+			break;
+		}
 
-	case coordtextDark:
-	{
-		for (auto& I : lightSqIDs)
-		{ coordText[I].setFillColor(coordcolorDark); }
-		break;
-	}
+		case coordtextDark:
+		{
+			for (auto& I : lightSqIDs)
+			{ coordText[I].setFillColor(coordcolorDark); }
+			break;
+		}
 
-	default: break;
+		default: break;
 	}
 
 	return;
 }
 
 
-void sliderClass::Reset()
+void SliderClass::Reset()
 {
 	std::map<std::pair<SliderID, subSliderID>, sf::Uint8&> CAmap{getColorAssociationMap()};
 
 	currentValue = defaultValue;
-	currentValueFloat = currentValue;
-
 	sliderObj.setPosition(currentValue + minXoffset, sliderObj.getPosition().y);
 	sliderBoundingbox = sliderObj.getGlobalBounds();
 
@@ -200,16 +199,16 @@ void resetSlider(SliderID ID)
 	switch (ID)
 	{
 		case outlineThicknessD:
-			colorWindowSliders[18].Reset();
-			break;
+		colorWindowSliders[18].Reset();
+		break;
 
 		case outlineThicknessL:
-			colorWindowSliders[19].Reset();
-			break;
+		colorWindowSliders[19].Reset();
+		break;
 
 		case coordSize:
-			colorWindowSliders[20].Reset();
-			break;
+		colorWindowSliders[20].Reset();
+		break;
 
 		case resetall:
 		{
@@ -265,6 +264,7 @@ bool checkColorwindowButtons(sf::Vector2f clickLocation)
 		colorWindowText.setString(((isEditingLightColors)? "Light colors" : "Dark colors"));
 		colorWindowText.setFillColor(((isEditingLightColors)? sf::Color::White : sf::Color::Black));
 
+		// repositioning all sliders for the new active values
 		for (auto& Slider : colorWindowSliders)
 		{
 			if (drawSliderForColor(Slider.sliderName))
@@ -285,46 +285,44 @@ bool checkColorwindowButtons(sf::Vector2f clickLocation)
 
 			switch (R)
 			{
-			case 0: //Sqcolor
+				case 0: //Sqcolor
 				((isEditingLightColors) ? resetSlider(sqColorlight) : resetSlider(sqColordark));
 				if (isCoordtextColorlinked)
-				{		//lightsquares use dark coordtext, so reset the opposite textcolor (to the sqcolor being edited)
+				{	//lightsquares use dark coordtext, so reset the opposite textcolor (to the sqcolor being edited)
 					((isEditingLightColors) ? resetSlider(coordtextDark) : resetSlider(coordtextLight));
 				}
 				break;
 
-			case 1: //Coordcolor
+				case 1: //Coordcolor
 				if (isCoordtextColorlinked) { isCoordtextColorlinked = false; } //otherwise the value doesn't reset
 				((isEditingLightColors) ? resetSlider(coordtextDark) : resetSlider(coordtextLight));
 				break;
 
-			case 2: //outline color
+				case 2: //outline color
 				if (isOutlineColorShared)
 				{
 					resetSlider(outlineLight);
 					resetSlider(outlineDark);
 				}
-				else
-					((isEditingLightColors) ? resetSlider(outlineLight) : resetSlider(outlineDark));
+				else ((isEditingLightColors) ? resetSlider(outlineLight) : resetSlider(outlineDark));
 				break;
 
-			case 3: //OutlineThickness
+				case 3: //OutlineThickness
 				if ((isOutlineColorShared) || (isEditingLightColors))
 				{ resetSlider(outlineThicknessL); }
 				if ((isOutlineColorShared) || (!isEditingLightColors))
 				{ resetSlider(outlineThicknessD); }
 				break;
 
-			case 4: //CoordTextSize
+				case 4: //CoordTextSize
 				resetSlider(coordSize);
 				break;
 
-			case 5: //resetall
+				case 5: //resetall
 				resetSlider(resetall);
 				break;
 
-			default: break;
-
+				default: break;
 			}
 
 			break; //out of the for loop
@@ -359,25 +357,25 @@ bool drawSliderForColor(SliderID ID)
 
 	switch (ID)
 	{
-	case coordSize:
+		case coordSize:
 		shouldDraw = true;
 		break;
 
-	case sqColorlight:
-	case outlineLight:
-	case coordtextDark: //it's more intuitive that the slider should affect the text on the same color as the squares you're editing. It's more informative too; otherwise you'd just have two sets of identical sliders.
-	case outlineThicknessL:
+		case sqColorlight:
+		case outlineLight:
+		case coordtextDark: //it's more intuitive that the slider should affect the text on the same color as the squares you're editing. It's more informative too; otherwise you'd just have two sets of identical sliders.
+		case outlineThicknessL:
 		shouldDraw = isEditingLightColors;
 		break;
 
-	case sqColordark:
-	case outlineDark:
-	case coordtextLight:
-	case outlineThicknessD:
+		case sqColordark:
+		case outlineDark:
+		case coordtextLight:
+		case outlineThicknessD:
 		shouldDraw = !isEditingLightColors;
 		break;
 
-	default: break;
+		default: break;
 	}
 
 	return shouldDraw;

@@ -24,7 +24,7 @@ std::set<std::pair<int, int>> manual_excludes{}; //the user has excluded these d
 
 bool isTriggerResize{true}; //for the initial setup
 
-Boardsquare::Boardsquare(int x, int y, int IDnum) : sf::RectangleShape(),
+Boardsquare::Boardsquare(int x, int y, int IDnum) : sf::RectangleShape({SqWidth, SqHeight}),
 	m_ID{IDnum}, column{x}, row{y}, m_algCoord{LookupTable.GetStrView(column, row)},
 	isDark{!(static_cast<bool>((column + row) % 2))}, isOccupied{false}, isExcluded{false},
 	edgeDist{{(m_ID % numRows)}, {(numRows - (1 + edgeDist.Top))} , {(m_ID / numRows)} , {(numColumns - (1 + edgeDist.Left))}}
@@ -43,7 +43,7 @@ Boardsquare::Boardsquare(int x, int y, int IDnum) : sf::RectangleShape(),
 	// setFillColor((isDark) ? darkSqColor : lightSqColor);
 	setFillColor((isDark) ? darksqColor : lightsqColor); //using global colors, not the static class-members
 	setOutlineColor((isDark) ? outlinecolorDark : outlinecolorLight);
-	setOutlineThickness((isDark)? (sqOutlineSignDark*sqOutlineThicknessD) : (sqOutlineSignLight*sqOutlineThicknessL));
+	setOutlineThickness((isDark)? (float(sqOutlineSignDark)*sqOutlineThicknessD) : (float(sqOutlineSignLight)*sqOutlineThicknessL));
 }
 
 std::vector<Boardsquare> SquareTable;

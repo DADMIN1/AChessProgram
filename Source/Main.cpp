@@ -27,6 +27,13 @@
 #include "BoardTile.hpp"
 #endif
 
+// draws all piece textures
+#define TEST_SPRITESHEET
+#undef TEST_SPRITESHEET
+
+#define LSD_TRANSPARENCY
+#undef LSD_TRANSPARENCY
+
 #include <effolkronium/random.hpp> //effolkronium, currently only used for LSDmode
 
 #include <SFML/Graphics.hpp>
@@ -35,8 +42,8 @@
 #include <iostream>
 #include <vector>
 #include <cctype> //for std::toupper / std::tolower
-//#include <thread> //only required for detach
-#include <tuple> //for std::ignore //lol
+#include <thread> //only required for detach
+
 
 //uppercase-conversion for std::string (std::toupper only works with unsigned char)
 std::string str_toupper(std::string s)
@@ -290,12 +297,10 @@ SwitchName OverlayPromotionSelect(Piece& promotingPiece, sf::Vector2f targetSq, 
 
 int main()
 {
-	//std::system("pwd");
-	std::ignore = std::system("clear");
-	//auto system("clear"); //bash command. Pretending to use return-value to prevent the useless warning. For some reason, std::system can't pretend to use return-value with 'auto' or 'int', or even void-cast.
-		//I think that using "auto system()" causes the compiler to optimize-out the line, or it turns it into a string declaration instead? It seems to break the windowHax-code
+	[[maybe_unused]] int status = std::system("clear");
+	// compiler warns about unused return-value from std::system
 
-		//Load config file
+	//Load config file
 	InitOptions initOptions = SetConfigValues();
 	std::cout << "calling initOptions: " << initOptions.FunctionMap.begin()->first << '\n';
 	initOptions.FunctionMap.begin()->second();
@@ -311,7 +316,8 @@ int main()
 
 	Piece::LoadAllTextures();
 
-/* 	sf::RenderTexture testSpriteSheet;
+	#ifdef TEST_SPRITESHEET
+ 	sf::RenderTexture testSpriteSheet;
 	testSpriteSheet.create(960, 960);
 	testSpriteSheet.clear(sf::Color::Transparent);
 
@@ -322,7 +328,8 @@ int main()
 		testSpriteSheet.draw(S.second);
 		increasingOffset += 96;
 	}
-	testSpriteSheet.display(); */
+	testSpriteSheet.display(); 
+	#endif
 
 	sf::Vector2i windowPositionCheck{}; //we'll use this to see if the window has moved
 	//this is used to determine if the "windowHax" script should be activated
@@ -372,8 +379,8 @@ int main()
 	//960/8 = 120
 	sf::VideoMode videoModeDefault(960,960); // Defining a variable to hold resolutions for switching between window sizes.
 	//sf::VideoMode videoModeDefault(1024, 1024);
-//Don't change to this until you're ready to switch from 96px/tile to 128px
-//96dpi is a standard, though
+	//Don't change to this until you're ready to switch from 96px/tile to 128px
+	//96dpi is a standard, though
 
 	sf::ContextSettings  mainWindowContextSettings(0, 0, 16, 1, 1, sf::ContextSettings::Default, false);
 	//mainWindowContextSettings.antialiasingLevel = 16;
@@ -386,7 +393,7 @@ int main()
 	//boardWindow.setPosition(sf::Vector2i(1980, 0)); //opens on right monitor
 	//boardWindow.setPosition(sf::Vector2i(0,0));
 
-//actually why don't you just use the winWidth/Height variables in this?
+	//actually why don't you just use the winWidth/Height variables in this?
 	sf::View StandardView(sf::FloatRect(0,0,960,960));
 
 	//sf::View SetupModeView(sf::FloatRect(0, 0, 720, 240));
@@ -400,8 +407,9 @@ int main()
 	//I don't think the videomode set here matters, only the one that's set when you re-open it later.
 	SetupWindow.setView(SetupModeView);
 	SetupWindow.setFramerateLimit(60); //the main window's framerate is throttled if you set this any lower
-	SetupWindow.setVisible(false);
 	SetupWindow.setPosition(sf::Vector2i(boardWindow.getSize().x, 0) + boardWindow.getPosition()); //trying to open it to the right of the boardwindow
+	//SetupWindow.setVisible(false);
+	SetupWindow.close();
 
 	sf::Texture setupBackdropTileTex;
 	setupBackdropTileTex.loadFromFile("Resource/Graphics/cheatTile.png");
@@ -483,7 +491,7 @@ int main()
 
 	//to properly scale the initial board/window, you need to call this after "GenerateBoard(true)" has been called (it is called by LoadFEN)
 	//GenerateBoard(true) rescales sqWidth,winWidth,Horizontal-scale, etc, and sets "isTriggerResize" to true
-//I think the problem is that I relocated the "isTriggerResize" and "RescaleEverything" calls from the top of the frameloop to after the PollEvent code.
+	//I think the problem is that I relocated the "isTriggerResize" and "RescaleEverything" calls from the top of the frameloop to after the PollEvent code.
 	boardWindow.setSize(sf::Vector2u(winWidth, winHeight));
 
 	rules.setRankVars();
@@ -534,6 +542,7 @@ int main()
 	while(boardWindow.isOpen())
 	{
 		// while(colorWindow.isOpen() && colorWindow.hasFocus()) //LSD-mode happens in this loop, so you can't use the "hasFocus" requirement
+		//while(colorWindow.isOpen() && (isLSDmode || colorWindow.hasFocus()))
 		while(colorWindow.isOpen())
 		{
 			colorWindow.clear();
@@ -544,7 +553,7 @@ int main()
 			while(colorWindow.pollEvent(CWevent))
 			{
 				if(CWevent.type == sf::Event::Closed)
-					colorWindow.close();
+				{ colorWindow.close(); break; }
 
 				if(CWevent.type == sf::Event::KeyPressed)
 				{
@@ -556,59 +565,61 @@ int main()
 							colorWindow.close();
 						}
 						break;
-				// save values for color you're editing
+						// TODO:
+						// report slider values
+						// save values for color you're editing
+						// save values for both colors
 
-				// save values for both colors
+						// Enable LSD mode
+						case sf::Keyboard::L:
+						{
+							((isLSDmode) ? isLSDmode = false : isLSDmode = true);
 
-				// Enable LSD mode
-					case sf::Keyboard::L:
-					{
-						((isLSDmode) ? isLSDmode = false : isLSDmode = true);
+							//during LSD-mode, these have different functions:
+							isCoordtextColorlinked = false; //outlines have their opacity changed
+							isOutlineColorShared = true; //square outline thickness is shared between colors
 
-						//during LSD-mode, these have different functions:
-						isCoordtextColorlinked = false; //outlines have their opacity changed
-						isOutlineColorShared = true; //square outline thickness is shared between colors
-
-						selectedSlider = nullptr;
-					}
-					break;
-
-					case sf::Keyboard::Key::R:
-						{resetSlider(resetall);}
+							selectedSlider = nullptr;
+						}
 						break;
 
-					case sf::Keyboard::Space:
-					{
-						isEditingLightColors = (!isEditingLightColors);
-						colorWindowText.setString(((isEditingLightColors)? "Light colors" : "Dark colors"));
-						colorWindowText.setFillColor(((isEditingLightColors)? sf::Color::White : sf::Color::Black));
+						case sf::Keyboard::Key::R:
+							{resetSlider(resetall);}
+							break;
 
-						for (auto& Slider : colorWindowSliders)
+						case sf::Keyboard::Space:
 						{
-							if (drawSliderForColor(Slider.sliderName))
+							isEditingLightColors = (!isEditingLightColors);
+							colorWindowText.setString(((isEditingLightColors)? "Light colors" : "Dark colors"));
+							colorWindowText.setFillColor(((isEditingLightColors)? sf::Color::White : sf::Color::Black));
+
+							for (auto& Slider : colorWindowSliders)
 							{
-								Slider.getValueFromAssociated();
+								if (drawSliderForColor(Slider.sliderName))
+								{
+									Slider.getValueFromAssociated();
+								}
 							}
+
+							selectedSlider = nullptr;
 						}
+						break;
 
-						selectedSlider = nullptr;
+						case sf::Keyboard::I:
+						{
+							((isEditingLightColors)? sqOutlineSignLight : sqOutlineSignDark) *= -1;
+							wasModified.push_back(outlineThicknessD);
+							wasModified.push_back(outlineThicknessL);
+							std::cout <<  ((isEditingLightColors)? "LightSq" : "DarkSq")  << " outline-thickness sign set to " << ((isEditingLightColors)? sqOutlineSignLight : sqOutlineSignDark) << '\n';
+
+							selectedSlider = nullptr;
+						}
+						break;
+
+						default:
+						break;
 					}
-					break;
-
-					case sf::Keyboard::I:
-					{
-						((isEditingLightColors)? sqOutlineSignLight : sqOutlineSignDark) *= -1;
-						wasModified.push_back(outlineThicknessD);
-						wasModified.push_back(outlineThicknessL);
-						std::cout <<  ((isEditingLightColors)? "LightSq" : "DarkSq")  << " outline-thickness sign set to " << ((isEditingLightColors)? sqOutlineSignLight : sqOutlineSignDark) << '\n';
-
-						selectedSlider = nullptr;
-					}
-					break;
-
-					default:
-					break;
-					}
+					continue;
 				}
 
 				if(CWevent.type == sf::Event::MouseButtonPressed)
@@ -635,13 +646,15 @@ int main()
 							}
 						}
 					}
+					continue;
 				}
 
 				if (CWevent.type == sf::Event::MouseButtonReleased)
 				{
 					selectedSlider = nullptr;
+					continue;
 				}
-			}
+			} // End ColorWindow pollEvent loop
 
 			//Drawing checkboxes if their setting is enabled
 			if(isOutlineColorShared)
@@ -661,9 +674,8 @@ int main()
 			{
 				if (selectedSlider->sliderGuidebounds.contains(sf::Vector2f(sf::Mouse::getPosition(colorWindow).x, selectedSlider->sliderObj.getPosition().y)))
 				{
-					selectedSlider->sliderObj.setPosition((sf::Mouse::getPosition(colorWindow).x), selectedSlider->sliderObj.getPosition().y);
+					selectedSlider->sliderObj.setPosition(sf::Mouse::getPosition(colorWindow).x, selectedSlider->sliderObj.getPosition().y);
 					selectedSlider->currentValue = sf::Mouse::getPosition(colorWindow).x - selectedSlider->minXoffset;
-					selectedSlider->currentValueFloat = selectedSlider->currentValue;
 					selectedSlider->sliderBoundingbox = selectedSlider->sliderObj.getGlobalBounds();
 
 					if (isDEBUG)
@@ -682,7 +694,6 @@ int main()
 				int control{((isEditingLightColors)? 19 : 18)};
 
 				colorWindowSliders[dependent].currentValue = colorWindowSliders[control].currentValue;
-				colorWindowSliders[dependent].currentValueFloat = colorWindowSliders[control].currentValueFloat;
 				colorWindowSliders[dependent].changeRate = colorWindowSliders[control].changeRate;
 
 			}
@@ -693,34 +704,31 @@ int main()
 				//LSDmode code here
 				if (isLSDmode)
 				{
-					if (SS.changeRate == 0)
-					{
-						SS.changeRate = effolkronium::random_static::get(-1.0, 1.0);
+					if (SS.changeRate == 0.f) {
+						SS.changeRate = effolkronium::random_static::get(-1.0f, 1.0f);
 					}
-
-					if (SS.currentValueFloat >= 255)
+					
+					if (SS.currentValue >= 255.f)
 					{
-						SS.currentValueFloat = 255;
-						SS.changeRate = effolkronium::random_static::get(-1.0, -0.1);
+						SS.currentValue = 255.f;
+						SS.changeRate = effolkronium::random_static::get(-1.0f, -0.1f);
 					}
-
-					if (SS.currentValueFloat <= 0)
+					else if (SS.currentValue <= 0.f)
 					{
 						if (((SS.sliderName == outlineThicknessD)) && effolkronium::random_static::get<bool>(0.75))
-							{
-								// ((SS.sliderName == outlineThicknessD)? sqOutlineSignDark : sqOutlineSignLight) *= -1;
+						{
+							// ((SS.sliderName == outlineThicknessD)? sqOutlineSignDark : sqOutlineSignLight) *= -1;
 							sqOutlineSignDark *= -1;
 						}
 						else if (((SS.sliderName == outlineThicknessL)) && effolkronium::random_static::get<bool>(0.75))
-						{sqOutlineSignLight *= -1;}
+						{ sqOutlineSignLight *= -1; }
 
-						SS.currentValueFloat = 0;
-						SS.changeRate = effolkronium::random_static::get(0.1, 1.0);
+						SS.currentValue = 0.f;
+						SS.changeRate = effolkronium::random_static::get(0.1f, 1.0f);
 					}
 
-					SS.currentValueFloat += SS.changeRate;
-					SS.currentValue = static_cast<int>(SS.currentValueFloat);
-					SS.sliderObj.move(SS.changeRate, 0); //this isn't necessary, it's just cool to see them move
+					SS.currentValue += SS.changeRate;
+					SS.sliderObj.move(SS.changeRate, 0.f); //this isn't necessary, it's just cool to see them move
 					SS.updateAssociated();
 					SS.sliderBoundingbox = SS.sliderObj.getGlobalBounds();
 				}
@@ -741,7 +749,7 @@ int main()
 				}
 
 				for (SliderID S_ID : wasModified)
-					{
+				{
 					switch(S_ID)
 					{
 						case sqColordark:
@@ -790,7 +798,7 @@ int main()
 						{
 							for (int& I : darkSqIDs)
 							{
-								SquareTable[I].setOutlineThickness((sqOutlineSignDark*sqOutlineThicknessD));
+								SquareTable[I].setOutlineThickness(float(sqOutlineSignDark)*sqOutlineThicknessD);
 							}
 
 							if (isOutlineColorShared)
@@ -805,7 +813,7 @@ int main()
 						{
 							for (int& I : lightSqIDs)
 							{
-								SquareTable[I].setOutlineThickness((sqOutlineSignLight*sqOutlineThicknessL));
+								SquareTable[I].setOutlineThickness(float(sqOutlineSignLight)*sqOutlineThicknessL);
 							}
 
 							if (isOutlineColorShared)
@@ -854,10 +862,10 @@ int main()
 			{
 				if (isCoordtextColorlinked)
 				{
+					outlinecolorDark.a = ((darksqColor.r + darksqColor.g + darksqColor.b) / 3);
+					outlinecolorLight.a = ((lightsqColor.r + lightsqColor.g + lightsqColor.b) / 3);
 					// outlinecolorDark.a = ((outlinecolorDark.r + outlinecolorDark.g + outlinecolorDark.b) / 3);
-				outlinecolorDark.a = ((darksqColor.r + darksqColor.g + darksqColor.b) / 3);
-				// outlinecolorLight.a = ((outlinecolorLight.r + outlinecolorLight.g + outlinecolorLight.b) / 3  );
-				outlinecolorLight.a = ((lightsqColor.r + lightsqColor.g + lightsqColor.b) / 3  );
+					// outlinecolorLight.a = ((outlinecolorLight.r + outlinecolorLight.g + outlinecolorLight.b) / 3);
 				}
 
 				for (auto& Sq : SquareTable)
@@ -865,24 +873,29 @@ int main()
 					if (Sq.isDark)
 					{
 						Sq.setFillColor(darksqColor);
-						Sq.setOutlineThickness(sqOutlineSignDark * sqOutlineThicknessD);
+						Sq.setOutlineThickness(float(sqOutlineSignDark) * sqOutlineThicknessD);
 						Sq.setOutlineColor(outlinecolorDark);
 					}
 					else
 					{
 						Sq.setFillColor(lightsqColor);
-						Sq.setOutlineThickness(sqOutlineSignLight * sqOutlineThicknessL);
+						Sq.setOutlineThickness(float(sqOutlineSignLight) * sqOutlineThicknessL);
 						Sq.setOutlineColor(outlinecolorLight);
 					}
 
-					/* if (Sq.isOccupied)
+					#ifdef LSD_TRANSPARENCY
+					if (Sq.isOccupied)
 					{
-						// Sq.occupyingPiece->m_Sprite.setColor(Sq.getFillColor() - sf::Color(1,1,1,0));
-						if(isCoordtextColorlinked)
-							Sq.occupyingPiece->m_Sprite.setColor(sf::Color(255, 255, 255, 255));
-						else
-							Sq.occupyingPiece->m_Sprite.setColor(sf::Color(255, 255, 255, 255));
-					} */
+						// make white areas of pieces effectively transparent
+						sf::Color fillcolor = Sq.getFillColor();
+						if(isCoordtextColorlinked) {
+							fillcolor.a = 0; // invert color when checkbox is enabled
+							Sq.occupyingPiece->m_Sprite.setColor(sf::Color::White - fillcolor);
+						} else {
+							Sq.occupyingPiece->m_Sprite.setColor(fillcolor);
+						}
+					}
+					#endif
 				}
 			}
 
@@ -898,105 +911,8 @@ int main()
 		while(SetupWindow.isOpen() && isSetupMode)
 		{
 			SetupWindow.clear();
-
-			//Start of SETUPWINDOW EVENTS
-			sf::Event SetupWindowEvent;
-			while(SetupWindow.pollEvent(SetupWindowEvent))
-			{
-
-				if(SetupWindowEvent.type == sf::Event::Closed)
-					SetupWindow.setVisible(false);
-				//SetupWindow.close(); //There doesn't seem to be any performance difference between hiding the window and having it closed
-				//And it would be preferrable to not close it so that we don't have to re-create the pieces every time, and re-set the framerate and other options
-
-				if(SetupWindowEvent.type == sf::Event::KeyPressed)
-				{
-					// Inner switch - START OF SETUPWINDOW KEYBOARD SHORTCUTS
-					switch(SetupWindowEvent.key.code)
-					{
-						case sf::Keyboard::Q:
-						case sf::Keyboard::Tab: //toggle setup mode/window
-						{
-							if (isSetupMode)
-							{
-								isSetupMode = false;
-
-								ClearSquareStorage();
-								EraseCapturedPieces();
-								turnhistory.Clear();
-
-								(isWhiteTurn) ? isWhiteTurn = false : isWhiteTurn = true;
-								AlternateTurn(); //This refills SquareStorage
-
-								SetupWindow.setVisible(false);
-							}
-						}
-						break;
-
-						/*	case sf::Keyboard::Up:
-						SetupWindow.setPosition(sf::Vector2i(0, 0));
-						SetupWindow.setVisible(true);
-						break;*/
-
-						case sf::Keyboard::Down: //Doesn't toggle setupMode though
-						{ SetupWindow.setVisible(false); }
-						break;
-
-						default:
-							break;
-					} //END KEYCODE SWITCH
-				}	  //END SETUPWINDOW KEYPRESS EVENTS
-
-				if(SetupWindowEvent.type == sf::Event::Resized)
-				{
-					sf::FloatRect visibleArea(0.f,0.f,SetupWindowEvent.size.width,SetupWindowEvent.size.height);
-					SetupWindow.setView(sf::View(visibleArea));
-					//break; //Should I break here? it's not in a switch, it's breaking the while loop.
-				}
-
-				//this doesn't work anymore because Window-Manger ignores focus requests, for some reason
-				/* if(SetupWindowEvent.type == sf::Event::MouseEntered)
-				{
-					SetupWindow.requestFocus();
-				}
-
-				if(SetupWindowEvent.type == sf::Event::MouseLeft)
-				{
-					boardWindow.requestFocus();
-				} */
-
-				//changing scroll event may have broken it
-				if((SetupWindowEvent.type == sf::Event::MouseWheelScrolled) && (isSetupMode))
-				{
-					if(SetupWindowEvent.mouseWheelScroll.delta > 0)
-					{ //If you scroll up, select the previous m_PieceType
-						ChangeSetupPiece(-1);
-					}
-					else if(SetupWindowEvent.mouseWheelScroll.delta < 0)
-					{ //If you scroll down, select the next m_PieceType
-						ChangeSetupPiece(1);
-					}
-				}
-
-				if(SetupWindowEvent.type == sf::Event::MouseButtonPressed)
-				{
-					//after selected a piece by clicking, you probably want to go back to the board window?
-					if (SetupWindowEvent.mouseButton.button == sf::Mouse::Left)
-					{
-						for(std::size_t j{0}; j < selectionSprites.size(); ++j)
-						{
-							if(selectionSprites[j].m_Sprite.getGlobalBounds().contains(sf::Vector2f(sf::Mouse::getPosition(SetupWindow))))
-							{
-								ChangeSetupPiece(0, selectionSprites[j].m_PieceType);
-								break;
-							}
-						}
-					}
-				}
-			} //END of SetupWindow event polling loop
-
+			
 			//SetupWindow loading pieces
-
 			if(setupSpritesLoaded == false)
 			{
 				selectionSprites.clear(); //because we're not overwriting them
@@ -1063,6 +979,106 @@ int main()
 				if (isDEBUG) { outPut << " Done.\n"; std::cout << outPut.str(); }
 			} //end of setupwindow sprite loading
 
+			//Start of SETUPWINDOW EVENTS
+			sf::Event SetupWindowEvent;
+			while(SetupWindow.pollEvent(SetupWindowEvent))
+			{
+				if(SetupWindowEvent.type == sf::Event::Closed) {
+					//SetupWindow.setVisible(false);
+					SetupWindow.close(); break; //There doesn't seem to be any performance difference between hiding the window and having it closed
+					//And it would be preferrable to not close it so that we don't have to re-create the pieces every time, and re-set the framerate and other options
+				}
+				if(SetupWindowEvent.type == sf::Event::KeyPressed)
+				{
+					// Inner switch - START OF SETUPWINDOW KEYBOARD SHORTCUTS
+					switch(SetupWindowEvent.key.code)
+					{
+						case sf::Keyboard::Q:
+						case sf::Keyboard::Tab: //toggle setup mode/window
+						{
+							if (isSetupMode)
+							{
+								isSetupMode = false;
+
+								ClearSquareStorage();
+								EraseCapturedPieces();
+								turnhistory.Clear();
+
+								(isWhiteTurn) ? isWhiteTurn = false : isWhiteTurn = true;
+								AlternateTurn(); //This refills SquareStorage
+
+								//SetupWindow.setVisible(false);
+								SetupWindow.close();
+							}
+						}
+						break;
+
+						case sf::Keyboard::Up:
+						SetupWindow.setPosition(sf::Vector2i(0, 0));
+						SetupWindow.setVisible(true);
+						break;
+
+						case sf::Keyboard::Down: //Doesn't toggle setupMode though
+						{ SetupWindow.setVisible(false); }
+						break;
+
+						default:
+							break;
+					} //END KEYCODE SWITCH
+					continue;
+				}	  //END SETUPWINDOW KEYPRESS EVENTS
+
+				if(SetupWindowEvent.type == sf::Event::Resized)
+				{
+					sf::FloatRect visibleArea(0.f,0.f,SetupWindowEvent.size.width,SetupWindowEvent.size.height);
+					SetupWindow.setView(sf::View(visibleArea));
+					continue;
+					//break; //Should I break here? it's not in a switch, it's breaking the while loop.
+				}
+
+				//this doesn't work anymore because Window-Manger ignores focus requests, for some reason
+				/* if(SetupWindowEvent.type == sf::Event::MouseEntered)
+				{
+					SetupWindow.requestFocus();
+				}
+
+				if(SetupWindowEvent.type == sf::Event::MouseLeft)
+				{
+					boardWindow.requestFocus();
+				} */
+
+				//changing scroll event may have broken it
+				if((SetupWindowEvent.type == sf::Event::MouseWheelScrolled) && (isSetupMode))
+				{
+					if(SetupWindowEvent.mouseWheelScroll.delta > 0)
+					{ //If you scroll up, select the previous m_PieceType
+						ChangeSetupPiece(-1);
+					}
+					else if(SetupWindowEvent.mouseWheelScroll.delta < 0)
+					{ //If you scroll down, select the next m_PieceType
+						ChangeSetupPiece(1);
+					}
+					continue;
+				}
+
+				if(SetupWindowEvent.type == sf::Event::MouseButtonPressed)
+				{
+					//after selected a piece by clicking, you probably want to go back to the board window?
+					if (SetupWindowEvent.mouseButton.button == sf::Mouse::Left)
+					{
+						for(std::size_t j{0}; j < selectionSprites.size(); ++j)
+						{
+							if(selectionSprites[j].m_Sprite.getGlobalBounds().contains(sf::Vector2f(sf::Mouse::getPosition(SetupWindow))))
+							{
+								ChangeSetupPiece(0, selectionSprites[j].m_PieceType);
+								break;
+							}
+						}
+					}
+					continue;
+				}
+			} //END of SetupWindow event polling loop
+
 			// Setupwindow drawing stuff
 
 			// don't draw unless if (SetupWindow.isVisible()) //This entire loop requires that the Window is open and in SetupMode.
@@ -1099,15 +1115,6 @@ int main()
 		sf::Event boardWindowEvent;
 		while (boardWindow.pollEvent(boardWindowEvent))
 		{
-			if (!(isSetupMode || isGameOver || isReshapeMode || isPieceSelected || Fish::isRunning))
-			{ // we exclude the piece-selected state because we want to use right-click to cancel a selection without drawing anything.
-				arrowOverlay.arrowCreator.m_actionMap.pushEvent(boardWindowEvent); //do this instead of .update
-			}
-			else
-			{//if we're drawing an arrow during one of the excluded states, cancel drawing mode.
-				arrowOverlay.arrowCreator.isDrawingMode = false;
-			}
-
 			if ((boardWindowEvent.type == sf::Event::Closed) || ((boardWindowEvent.type == sf::Event::KeyPressed) && (boardWindowEvent.key.code == sf::Keyboard::Q)))
 			{
 				colorWindow.close();
@@ -1149,6 +1156,8 @@ int main()
 				sf::View copiedView(boardWindow.getView());
 				copiedView.setRotation(savedRotation);
 				arrowOverlay.setView(copiedView);
+				isTriggerResize = true;
+				continue;
 			} // end resize code
 
 
@@ -1202,6 +1211,7 @@ int main()
 				isPieceSelected = false;
 				isSquareSelected = false;
 				isDraggingPiece = false;
+				isTriggerResize = true;
 
 				//cancelling reshape mode
 				if (isReshapeMode && (boardWindowEvent.key.code != sf::Keyboard::S) && (boardWindowEvent.key.code != sf::Keyboard::LShift))
@@ -1361,7 +1371,8 @@ int main()
 					if (isSetupMode)
 					{
 						isSetupMode = false;
-						SetupWindow.setVisible(false);
+						//SetupWindow.setVisible(false);
+						SetupWindow.close();
 
 						((isWhiteTurn == true) ? isWhiteTurn = false : isWhiteTurn = true);
 						AlternateTurn(); //force all pieces (including the ones we just placed) to re-generate their Movetables.
@@ -1369,6 +1380,7 @@ int main()
 					else
 					{
 						isSetupMode = true;
+						if(!SetupWindow.isOpen()) {SetupWindow.create(maxPieceSelect,"Piece Selection",sf::Style::Titlebar);}
 						SetupWindow.setVisible(true);
 						((isFPScapped) ? SetupWindow.setFramerateLimit(60) : SetupWindow.setFramerateLimit(0));
 
@@ -1383,7 +1395,7 @@ int main()
 				}
 				break;
 
-			// DebugMode Toggles
+				// DebugMode Toggles
 				case sf::Keyboard::PageUp:
 				{((isDEBUG) ? isDEBUG = false : isDEBUG = true);}
 				break;
@@ -1514,8 +1526,8 @@ int main()
 						break;
 					}
 
-					//std::thread(Fish::EngineTest).detach();
-					Fish::EngineTest();
+					std::thread(Fish::EngineTest).detach();
+					//Fish::EngineTest();
 				}
 				break;
 
@@ -1547,10 +1559,13 @@ int main()
 					}
 					return 0; */
 
-					std::cout << "Arrow Overlay cleared! \n";
-					ArrowOverlay::activeOverlay->ClearAll();
+					/*std::cout << "Arrow Overlay cleared! \n";
+					ArrowOverlay::activeOverlay->ClearAll();*/
 
-					//PrintTest();
+					PrintTest();
+					
+					std::cout << "colorWindow: " << (colorWindow.isOpen()? "open" : "not open") << '\n';
+					std::cout << "setupWindow: " << (SetupWindow.isOpen()? "open" : "not open") << '\n';
 
 					//LookupTable.PrintNameTable();
 				}
@@ -1604,6 +1619,7 @@ int main()
 						SetupWindow.setVisible(true);
 						//SetupWindow.setSize(sf::Vector2u(720, 540));
 						SetupWindow.setPosition(sf::Vector2i(boardWindow.getSize().x, 0) + boardWindow.getPosition()); //trying to open it to the right of the boardwindow
+						//SetupWindow.requestFocus();
 					}
 					else
 					{
@@ -1616,12 +1632,12 @@ int main()
 						if (numRows > 8) //with the titlebar, even 9 squares goes off the screen
 						{
 							boardWindow.setPosition(sf::Vector2i(boardWindow.getPosition().x, 0));
-							//std::ignore = std::system("./windowHax up"); //We have to get the window out-of-bounds first, otherwise the resize gets blocked (fucking window manager)
+							//[[maybe_unused]] int status = std::system("./windowHax up"); //We have to get the window out-of-bounds first, otherwise the resize gets blocked (fucking window manager)
 						}
 						if (numColumns > 16) //16*120 = 1920
 						{
 							boardWindow.setPosition(sf::Vector2i(0, boardWindow.getPosition().y));
-							//std::ignore = std::system("./windowHax left"); //we have to break the screen horizontally too, otherwise the width will get bounded
+							//[[maybe_unused]] int status = std::system("./windowHax left"); //we have to break the screen horizontally too, otherwise the width will get bounded
 						}
 						boardWindow.setSize(sf::Vector2u(numColumns * 120, numRows * 120));
 
@@ -1637,6 +1653,7 @@ int main()
 					if (isSetupMode)
 					{
 						SetupWindow.setVisible(false);
+						//boardWindow.requestFocus();
 					}
 					else
 					{
@@ -1762,6 +1779,12 @@ int main()
 
 				case sf::Keyboard::Numpad9:
 				{
+					if ((sf::Keyboard::isKeyPressed(sf::Keyboard::LShift) || (sf::Keyboard::isKeyPressed(sf::Keyboard::RShift)))) 
+					{
+						std::cout << "Arrow Overlay cleared! \n";
+						ArrowOverlay::activeOverlay->ClearAll();
+						ArrowOverlay::activeOverlay->m_isVisible = true; break;
+					}
 					ArrowOverlay::activeOverlay->m_isVisible = !ArrowOverlay::activeOverlay->m_isVisible;
 					std::cout << "Arrow Overlay " << ((ArrowOverlay::activeOverlay->m_isVisible)? "enabled" : "disabled") << '\n';
 				}
@@ -1769,7 +1792,7 @@ int main()
 
 				case sf::Keyboard::Pause: //pause break
 				{
-					std::ignore = std::system("clear");
+					[[maybe_unused]] int status = std::system("clear");
 					//std::cin.unsetf(std::ios::skipws);
 					
 					if(std::cin.fail()) std::cout << "STDIN: FAIL\n";
@@ -1850,9 +1873,6 @@ int main()
 					++beginRowBottom; //don't include the slash as first character
 					std::string white_rowFEN = positionStr.substr(beginRowBottom);
 
-				/* 	std::cout << "black-FEN: " << black_rowFEN << '\n';
-					std::cout << "white-FEN: " << white_rowFEN << '\n'; */
-
 					int whiteSetupID = GetFischerRandomID(white_rowFEN);
 
 					bool isSetupSymmetric{true};
@@ -1872,7 +1892,8 @@ int main()
 							<< "Black: " << blackSetupID << " , "
 							<< "White: " << whiteSetupID << '\n';
 					}
-
+					std::cout << "black-FEN: " << black_rowFEN << '\n';
+					std::cout << "white-FEN: " << white_rowFEN << '\n';
 					std::cout << "\v \n";
 				}
 				break;
@@ -2001,7 +2022,36 @@ int main()
 			{
 				boardWindow.requestFocus();
 			} */
-
+			
+			// updating arrowOverlay events
+			if (arrowOverlay.m_isVisible)
+			{
+				bool included_event = false;
+				bool excluded_state = (isSetupMode || isGameOver || isReshapeMode || isPieceSelected || Fish::isRunning);
+				// we exclude the piece-selected state because we want to use right-click to cancel a selection without drawing anything.
+				switch(boardWindowEvent.type)
+				{
+					case sf::Event::MouseMoved:
+						//if (sf::Mouse::isButtonPressed(sf::Mouse::Right))
+						included_event = true;
+					break;
+					
+					case sf::Event::MouseButtonPressed:
+					case sf::Event::MouseButtonReleased:
+						//if (boardWindowEvent.mouseButton.button == sf::Mouse::Right) // not true for release?
+						included_event = true;
+					break;
+					
+					default: break;
+				}
+				
+				if (included_event && !excluded_state) {
+					arrowOverlay.arrowCreator.m_actionMap.pushEvent(boardWindowEvent); //do this instead of .update
+				} else {//if we're drawing an arrow during one of the excluded states, cancel drawing mode.
+					arrowOverlay.arrowCreator.isDrawingMode = false;
+				}
+			}
+			
 			if(boardWindowEvent.type == sf::Event::MouseMoved)
 			{
 				//This event only triggers if the mouse is still inside the window
@@ -2046,16 +2096,17 @@ int main()
 				}// what is the point in repositioning these here, if they have to get repositioned again, before they're drawn??? Somehow it helps make the motion more smooth. Be warned, you can't call "display" here.
 				//the mousepiece/setup piece might not be valid yet??? If they require hoveredSq first.
 				//also, if you draw it here, it'll duplicate the sprite on promotion-event
+				continue;
 			}
 
 			if(boardWindowEvent.type == sf::Event::MouseWheelScrolled)
 			{
 				//it would be better to manipulate the center of a view around, but using views fucks up the position of bounding boxes and there's no way to fix that
 
-// Use of the WindowHax script is currently disabled, because it's dangerous (mostly just annoying) when any other window is open; there's no garauntee that the script will actually manipulate the game's window.
-	// It wasn't working properly anyway (scrolling limits not working properly, top should not be allowed below top-of-screen if the limits are broken)
-	// This wasn't mentioned anywhere, but the script intentionally doesn't break the window outside of the boundaries unless the board dimensions are beyond a certain size.
-// Also my mouse doesn't have horizontal buttons anymore.
+				// Use of the WindowHax script is currently disabled, because it's dangerous (mostly just annoying) when any other window is open; there's no garauntee that the script will actually manipulate the game's window.
+				// It wasn't working properly anyway (scrolling limits not working properly, top should not be allowed below top-of-screen if the limits are broken)
+				// This wasn't mentioned anywhere, but the script intentionally doesn't break the window outside of the boundaries unless the board dimensions are beyond a certain size.
+				// Also my mouse doesn't have horizontal buttons anymore.
 				switch (boardWindowEvent.mouseWheelScroll.wheel)
 				{
 				/* case sf::Mouse::HorizontalWheel:
@@ -2067,7 +2118,7 @@ int main()
 						if(boardWindow.getPosition().x == windowPositionCheck.x) //if the window hasn't moved to the right after that, we must be at the right edge
 						{
 							//std::cout << "window at right edge: " << boardWindow.getPosition().x << '\n';
-							std::ignore = std::system("./windowHax right");
+							[[maybe_unused]] int status = std::system("./windowHax right");
 							boardWindow.setPosition(boardWindow.getPosition() + sf::Vector2i(160,0)); //right
 						}
 						windowPositionCheck = boardWindow.getPosition();
@@ -2077,13 +2128,13 @@ int main()
 					if(boardWindowEvent.mouseWheelScroll.delta < 0) //Left
 					{
 						if(boardWindow.getPosition().x == 0)
-							std::ignore = std::system("./windowHax left"); //left edge should actually use the windowPositionCheck as well, since it can stick on the
+							[[maybe_unused]] int status = std::system("./windowHax left"); //left edge should actually use the windowPositionCheck as well, since it can stick on the
 
 						boardWindow.setPosition(boardWindow.getPosition() + sf::Vector2i(-160,0)); //left
 					}
 				}
 				break; */
-//END OF HORIZONTAL SCROLLWHELL CASE//
+				//END OF HORIZONTAL SCROLLWHELL CASE//
 
 				case sf::Mouse::VerticalWheel:
 				{
@@ -2099,7 +2150,7 @@ int main()
 						}
 					} //End of setupMode scrollwheel
 
-/* 					else
+ 					/*else
 					{
 						if (boardWindow.getPosition().y != yAtBottom) { yAtBottom = false; }
 						else { yAtBottom = true; }
@@ -2109,7 +2160,7 @@ int main()
 						if(boardWindowEvent.mouseWheelScroll.delta > 0)
 						{ //scrolling up
 							if(boardWindow.getPosition().y == 0)
-								{std::ignore = std::system("./windowHax up");}
+								{[[maybe_unused]] int status = std::system("./windowHax up");}
 
 							if(!windowAtBottom)
 								boardWindow.setPosition(boardWindow.getPosition() + sf::Vector2i(0,-80)); //up, actually
@@ -2128,7 +2179,7 @@ int main()
 							if(boardWindow.getPosition().y == boardWindow.getSize().y)
 							{
 								std::cout << "window at bottom edge \n";
-								std::ignore = std::system("./windowHax down");
+								[[maybe_unused]] int status = std::system("./windowHax down");
 							}
 							boardWindow.setPosition(boardWindow.getPosition() + sf::Vector2i(0,80)); //down
 						}
@@ -2210,6 +2261,7 @@ int main()
 										std::set<PromotionRules::Trigger> triggered = rules.promoteRules.GetTriggered(*selectedPiece, MOVE);
 										SwitchName selectedPromote{selectedPiece->m_PieceType};
 
+										// handling promotions
 										if (!triggered.empty())
 										{
 											if (boardWindowEvent.type == sf::Event::MouseButtonPressed)
@@ -2237,6 +2289,7 @@ int main()
 										{
 											selectedPiece->Promote(selectedPromote);
 										}
+										selectedPiece->m_Sprite.setPosition(SquareTable[(selectedPiece->m_SqID)].getPosition());
 
 										if (MOVE.isCapture) { SFX_Controls.Play(SFX::capture); }
 										else { SFX_Controls.Play(SFX::move); }
@@ -2276,7 +2329,7 @@ int main()
 
 				if ((boardWindowEvent.mouseButton.button == sf::Mouse::Right) && (isPieceSelected)) //otherwise it may try and move invalid selectedPieces
 				{
-/* 					if(selectedPiece->isCaptured == false)
+					/*if(selectedPiece->isCaptured == false)
 						{selectedPiece->m_Sprite.setPosition(SquareTable[(selectedPiece->m_SqID)].getPosition());} //reset the position of selected Piece */
 					isPieceSelected = false;
 					isSquareSelected = false; //probably unnecessary
@@ -2299,7 +2352,7 @@ int main()
 
 		//CLEAR/REDRAW AFTER EVENTS!//
 		//MOVED FROM TOP OF FRAMELOOP
-//calcFPS moved to end of frameloop
+		//calcFPS moved to end of frameloop
 
 		boardWindow.clear(); // clear the previous frame.
 		moveHighlightBuffer.clear(sf::Color(0, 0, 0, 0));
@@ -2312,14 +2365,13 @@ int main()
 			}
 			boardWindow.setSize(sf::Vector2u(winWidth, winHeight));
 			isTriggerResize = false;
+			RescaleEverything();
 		}
-
-		RescaleEverything();
+		//RescaleEverything();
 		//MOVED FROM TOP OF FRAMELOOP//
 
-
 		//setup mode erasing pieces & placing pieces
-		if ((isSetupMode) && (boardWindow.hasFocus()) && (hoveredSq) && (sf::Mouse::isButtonPressed(sf::Mouse::Right) || sf::Mouse::isButtonPressed(sf::Mouse::Left)))
+		if ((isSetupMode) && (hoveredSq) && (sf::Mouse::isButtonPressed(sf::Mouse::Right) || sf::Mouse::isButtonPressed(sf::Mouse::Left)))
 		{
 			//static int lastChanged{-1}; //unused
 			//int targetSq = hoveredSq->m_ID; //also unused
@@ -2346,9 +2398,8 @@ int main()
 
 		//reshaping board
 		//this needs to affect "columnHeight" map, otherwise generate-board will undo this
-		if ((isReshapeMode) && (boardWindow.hasFocus()) && (hoveredSq) && (sf::Mouse::isButtonPressed(sf::Mouse::Right) || sf::Mouse::isButtonPressed(sf::Mouse::Left)))
+		if ((isReshapeMode) && (hoveredSq) && (sf::Mouse::isButtonPressed(sf::Mouse::Right) || sf::Mouse::isButtonPressed(sf::Mouse::Left)))
 		{
-
 			if (sf::Mouse::isButtonPressed(sf::Mouse::Right) && !hoveredSq->isExcluded)
 			{
 				//we don't need to remove it from squarestorage, right?
@@ -2469,7 +2520,7 @@ int main()
 			//If the outline is negative (growing inwards), move the coordText inward.
 			float offset{((SquareTable[I].getOutlineThickness() < 0)? SquareTable[I].getOutlineThickness() : 0)};
 			coordText[I].setPosition(SquareTable[I].getPosition() - sf::Vector2f{offset, offset});
-			coordText[I].setScale(HorizontalScale, VerticalScale);
+			coordText[I].setScale(HorizontalScale*coordTextscale, VerticalScale*coordTextscale);
 			boardWindow.draw(coordText[I]);
 			if (isDEBUG)
 			{
@@ -2636,17 +2687,17 @@ int main()
 			DrawMovecircles(moveHighlightBuffer, selectedPiece->Movetable, false, selectedPiece->m_OverlappingMoves);
 		}
 
-		arrowOverlay.arrowCreator.SendCallback(&boardWindow); //this has to be under the pollevent switch, otherwise it eats all the events, it seems. //It also has to be after the window is cleared, and the board is drawn, otherwise the board will be drawn over the arrow.
-
+		//arrowOverlay.arrowCreator.SendCallback(&boardWindow); //this has to be under the pollevent switch, otherwise it eats all the events, it seems. //It also has to be after the window is cleared, and the board is drawn, otherwise the board will be drawn over the arrow.
 		if (arrowOverlay.m_isVisible)
 		{
+			arrowOverlay.arrowCreator.SendCallback(&boardWindow); //this has to be under the pollevent switch, otherwise it eats all the events, it seems. //It also has to be after the window is cleared, and the board is drawn, otherwise the board will be drawn over the arrow.
 			boardWindow.draw(arrowOverlay);
 		} // draw the arrows before (under) the movecircle-buffer, and the mousepiece sprite
 
 		moveHighlightBuffer.display();
 		sf::Sprite highlightBufferSprite(moveHighlightBuffer.getTexture());
 		boardWindow.draw(highlightBufferSprite);
-//static sf::Sprite highlightBufferSprite(moveHighlightBuffer.getTexture()); //a static sprite doesn't resize to fit the texture, so you're screwed if the window-size changes.
+		//static sf::Sprite highlightBufferSprite(moveHighlightBuffer.getTexture()); //a static sprite doesn't resize to fit the texture, so you're screwed if the window-size changes.
 
 		if (isDraggingPiece) //we might need to exclude the nonstandard game-states
 		{
@@ -2713,7 +2764,9 @@ int main()
 		}
 		#endif
 		
-		//boardWindow.draw(sf::Sprite(testSpriteSheet.getTexture()));
+		#ifdef TEST_SPRITESHEET
+		boardWindow.draw(sf::Sprite(testSpriteSheet.getTexture()));
+		#endif
 		boardWindow.display(); // end the current frame, show everything we just drew (to the backbuffer)
 
 	}//End of boardwindow frameloop

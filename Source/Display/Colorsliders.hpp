@@ -33,6 +33,7 @@ extern int sqOutlineSignLight;
 extern sf::Color coordcolorLight;
 extern sf::Color coordcolorDark;
 extern int coordTextsize;
+extern float coordTextscale;
 
 extern std::vector<sf::Text> coordText;
 extern std::vector<int> darkSqIDs; //There's no way to tell a square's color from it's ID alone
@@ -77,27 +78,24 @@ enum subSliderID
 //the variables associated with various SliderIDs
 std::map<std::pair<SliderID,subSliderID>,sf::Uint8&> getColorAssociationMap();
 
-class sliderClass
+class SliderClass
 {
 	public:
-	SliderID sliderName;
-	subSliderID subName;
+	SliderID sliderName{};
+	subSliderID subName{};
 	sf::RectangleShape sliderObj{sf::Vector2f(10, 25)};
-	sf::FloatRect sliderBoundingbox;
-	sf::FloatRect sliderGuidebounds; //actually a bounding box for the whole range of valid positions, not just the small rectangle
-	int minXoffset{0};	//The value that has to be subtracted from x-coord to get the slider's value (this will be set to non-zero)
-	int defaultValue{0};
-	int currentValue{0}; //The slider's current position - minXoffset
-
-	//these two are for LSD mode
-	float currentValueFloat{0};
-	float changeRate{0};
+	sf::FloatRect sliderBoundingbox{};
+	sf::FloatRect sliderGuidebounds{}; //actually a bounding box for the whole range of valid positions, not just the small rectangle
+	float minXoffset{0};  // The value that has to be subtracted from x-coord to get the slider's value (this will be set to non-zero)
+	float defaultValue{0};
+	float currentValue{0}; //The slider's current position - minXoffset
+	float changeRate{0}; // for LSD mode
 
 	void updateAssociated(); //finds and updates the colors/other sliders related to the slider's current value
 	void getValueFromAssociated(); //updates the slider's position to the variable's current position. Useful for initialization/reset
 	void Reset(); //NEW
 
-	sliderClass(SliderID initID,subSliderID sub = R)
+	SliderClass(SliderID initID, subSliderID sub = R)
 	{
 		sliderName = initID;
 		subName = sub;
@@ -109,43 +107,43 @@ class sliderClass
 
 		switch(initID)
 		{
-		case sqColordark:
-		case sqColorlight:
-		sliderObj.setPosition(36,58);
-		break;
+			case sqColordark:
+			case sqColorlight:
+			sliderObj.setPosition(36,58);
+			break;
 
-		case outlineLight:
-		case outlineDark:
-		sliderObj.setPosition(31,258);
-		break;
+			case outlineLight:
+			case outlineDark:
+			sliderObj.setPosition(31,258);
+			break;
 
-		case coordtextLight:
-		case coordtextDark:
-		sliderObj.setPosition(35,161);
-		break;
+			case coordtextLight:
+			case coordtextDark:
+			sliderObj.setPosition(35,161);
+			break;
 
-		case outlineThicknessD:
-		case outlineThicknessL:
+			case outlineThicknessD:
+			case outlineThicknessL:
 			sliderObj.setPosition(27, 366);
-		break;
+			break;
 
-		case coordSize:
-		sliderObj.setPosition(27,430);
-		break;
+			case coordSize:
+			sliderObj.setPosition(27,430);
+			break;
 
-		default:
-		break;
+			default:
+			break;
 		}
 
 		//because R (the default) is 0, sliders will not be moved unless they are the 2nd or 3rd of their type
-		sliderObj.move(0,(26 * subSliderID(sub)));
+		sliderObj.move(0.f, (26 * subSliderID(sub)));
 		minXoffset = sliderObj.getPosition().x;
 		sliderBoundingbox = sliderObj.getGlobalBounds();
 
 		//sliderGuidebounds = sliderObj.getGlobalBounds();
 		sliderGuidebounds.width = 255;
 		sliderGuidebounds.height = 100;
-		sliderGuidebounds.top = sliderObj.getPosition().y - (sliderGuidebounds.height / 2); //assuming it's around the (adjusted) origin, not the top-left
+		sliderGuidebounds.top = sliderObj.getPosition().y - (sliderGuidebounds.height / 2.f); //assuming it's around the (adjusted) origin, not the top-left
 		sliderGuidebounds.left = sliderObj.getPosition().x;
 
 		getValueFromAssociated();
@@ -165,9 +163,9 @@ typedef boost::multi_index_container<SliderID,
 extern sequenced_set wasModified; //tracks when multiple color/associated values need to be re-applied (in main, somewhere with access to Squaretable). For example, reset buttons can modify the associated values of every color, without selecting a slider. The alternative would be to re-apply color/size/thickness variables on every frame, but this is more efficient and allows linked/shared values (linked coordText being opposite SqColor) to be properly controlled.
 //LSD-mode does re-apply each variable on every frame, because it's meant to modify everything independently.
 
-extern sliderClass* selectedSlider;
+extern SliderClass* selectedSlider;
 
-extern std::vector<sliderClass> colorWindowSliders;
+extern std::vector<SliderClass> colorWindowSliders;
 
 void SetSlidersFromAssociated(SliderID); //basically same as getValueFromAssociated, but searches for all (3) sliders with matching SliderID
 
