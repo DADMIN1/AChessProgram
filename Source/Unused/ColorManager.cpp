@@ -1,11 +1,11 @@
 #include "ColorManager.hpp"
 
 //Initializing Square-color variables
-std::vector<sf::Color> ColorManager::s_tileColors{ sf::Color(0x644B3BFF) , sf::Color(0xC89678FF) };
+std::vector<sf::Color> ColorManager::s_tileColors{ sf::Color(0x644B3CFF) , sf::Color(0xBEA091FF) };
 std::vector<sf::Color> ColorManager::s_coordColors{ ColorManager::s_tileColors[1] , ColorManager::s_tileColors[0] }; //opposite of square colors
-uint ColorManager::s_coordSize{ 16 }; 
-std::vector<sf::Color> ColorManager::s_outlineColors{ sf::Color(0x000000FF) , sf::Color(0x000000FF) };
+std::vector<sf::Color> ColorManager::s_outlineColors{ ColorManager::s_tileColors[1] , ColorManager::s_tileColors[0] };
 float ColorManager::s_outlineWidth{ 1.f };
+uint ColorManager::s_coordSize{ 16 };
 
 //Highlight colors
 std::vector<sf::Color> ColorManager::s_moveHighlightColors{ sf::Color(200,200,80,75) , sf::Color(200,200,80,75) }; //starting square, destination
@@ -17,8 +17,8 @@ bool ColorManager::s_isOutlineColorLinked{ false }; //Outline normally just stay
 bool ColorManager::s_isLSD_MODE{ false };
 
 
-sf::Font ColorManager::s_coordFont; //this definition is required
-
+sf::Font ColorManager::s_coordFont{}; //this definition is required
+// coordFont loaded in Main
 
 
 

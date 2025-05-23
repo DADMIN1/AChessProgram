@@ -77,7 +77,7 @@ CPPFLAGS += -isystem "${PROJECT_DIR}/Bromeon/" -isystem "${PROJECT_DIR}/"
 
 #use "-std=c++2a" instead of "-std=c++20" for g++ versions 9 and lower
 #CPPFLAGS += -MMD -MP -std=c++20 -fmax-errors=1 -pipe -march=native -mtune=native -pthread
-CPPFLAGS += -MMD -MP -std=c++23 -pipe -march=native -mtune=native -pthread
+CPPFLAGS += -MMD -MP -std=c++23 -pipe -march=native -mtune=native
 # "pthread" is required when you use std::thread. Yes, it really is a compiler-option; it sets the flags for both the preprocessor and linker.
 # "pipe" option just makes the compilation faster; it tells gcc to use pipes instead of temp-files.
 # "-march=native" option generates code optimized for your CPU's architecture. Obviously non-portable.

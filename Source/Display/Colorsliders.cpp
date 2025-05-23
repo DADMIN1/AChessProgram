@@ -88,6 +88,7 @@ void SliderClass::getValueFromAssociated()
 			}
 		}
 	} */
+	if (sliderName == resetall) return;
 
 	if (sliderName == outlineThicknessD)
 	{ currentValue = (sqOutlineThicknessD * 10.f); }
@@ -107,6 +108,8 @@ void SliderClass::getValueFromAssociated()
 //Sets sliders' values/positions to match their associated variable (use when variable was independently modified)
 void SetSlidersFromAssociated(SliderID ID)
 {
+	if (ID == resetall) return;
+	
 	int accessNum{0};
 	if (ID == outlineThicknessD) { accessNum = 18; }
 	else if (ID == outlineThicknessL) { accessNum = 19; }
@@ -130,6 +133,7 @@ void SetSlidersFromAssociated(SliderID ID)
 
 void SliderClass::updateAssociated()
 {
+	if (sliderName == resetall) return;
 	std::map<std::pair<SliderID, subSliderID>, sf::Uint8&> CAmap{getColorAssociationMap()};
 
 	if (CAmap.contains({sliderName, subName})) //some sliders do NOT exist in the map, like outlineThickness
@@ -180,6 +184,7 @@ void SliderClass::updateAssociated()
 
 void SliderClass::Reset()
 {
+	if (sliderName == resetall) return;
 	std::map<std::pair<SliderID, subSliderID>, sf::Uint8&> CAmap{getColorAssociationMap()};
 
 	currentValue = defaultValue;
@@ -275,7 +280,8 @@ bool checkColorwindowButtons(sf::Vector2f clickLocation)
 
 		isClickingAButton = true;
 	}
-
+	if (isClickingAButton) return true; // skip remaining checks if button was already found
+	
 	//checking the reset buttons
 	for (std::size_t R{0}; R < sliderResetbuttons.size(); ++R)
 	{

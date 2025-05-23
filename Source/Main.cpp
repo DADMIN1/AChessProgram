@@ -19,12 +19,13 @@
 #include "TextStorage.hpp"
 #include "EngineCommand.hpp"
 
-//experimental polygonal board-tiles - visible in debug-mode
+//experimental polygonal board-tiles
 #define TILETEST_EXPERIMENT
 #undef TILETEST_EXPERIMENT //comment this to enable
 
 #ifdef TILETEST_EXPERIMENT
 #include "BoardTile.hpp"
+bool showTestTiles{true}; //toggle with F8
 #endif
 
 // draws all piece textures
@@ -33,6 +34,9 @@
 
 #define LSD_TRANSPARENCY
 #undef LSD_TRANSPARENCY
+#ifdef LSD_TRANSPARENCY
+bool LSD_transparency_invertcolor{false}; //toggle with F8 (colorwindow)
+#endif
 
 #include <effolkronium/random.hpp> //effolkronium, currently only used for LSDmode
 
@@ -42,7 +46,7 @@
 #include <iostream>
 #include <vector>
 #include <cctype> //for std::toupper / std::tolower
-#include <thread> //only required for detach
+//#include <thread> //only required for detach
 
 
 //uppercase-conversion for std::string (std::toupper only works with unsigned char)
@@ -382,7 +386,7 @@ int main()
 	//Don't change to this until you're ready to switch from 96px/tile to 128px
 	//96dpi is a standard, though
 
-	sf::ContextSettings  mainWindowContextSettings(0, 0, 16, 1, 1, sf::ContextSettings::Default, false);
+	sf::ContextSettings mainWindowContextSettings(0, 0, 8, 1, 1, sf::ContextSettings::Default, false);
 	//mainWindowContextSettings.antialiasingLevel = 16;
 	//sf::RenderWindow boardWindow(sf::VideoMode(1024,1024), "Chess_V2", sf::Style::Default, mainWindowContextSettings); // 1024 = 128x8 , and it fits within 1080 height.
 	sf::RenderWindow boardWindow(videoModeDefault, "Chess_V2", sf::Style::Default, mainWindowContextSettings); // 1024 = 128x8 , and it fits within 1080 height.
@@ -524,14 +528,19 @@ int main()
 	loadAllSliders();
 
 	#ifdef TILETEST_EXPERIMENT
-	std::cout << "creating testTiles \n";
+	std::cout << "creating TestTiles \n";
+	if (!ColorManager::s_coordFont.loadFromFile("Resource/Fonts/dejavu/DejaVuSerifCondensed.ttf")) {
+		std::cerr << "failed to load TestTiles coordFont!\n"; exit(1);
+	}
 	std::vector<BoardTile> testTiles;
 	std::vector<CustomTile> customTiles;
 	for (int s{ 0 }; (s <= 7); ++s)
 	{
+		float nwidth = 80.f;
+		if (s > 1) nwidth -= (s*3.f);
 		//id, algCoord, px-position, colorindex, radius, sides //last two are optional
-		testTiles.push_back(BoardTile(s,"placeholder",sf::Vector2f(120*s,0),(s%2),68.f,(s+3)));
-		customTiles.push_back(CustomTile(s,"placeholder",sf::Vector2f(120*s,120),(s%2),68.f,(s+3)));
+		testTiles.push_back(BoardTile(s,"TestTile",sf::Vector2f(120*s,0),((s+1)%2),nwidth,(s+3)));
+		customTiles.push_back(CustomTile(s,"CustomTile",sf::Vector2f(120*s,120),(s%2),nwidth,(s+3)));
 	}
 	#endif
 	
@@ -584,8 +593,8 @@ int main()
 						break;
 
 						case sf::Keyboard::Key::R:
-							{resetSlider(resetall);}
-							break;
+						{ resetSlider(resetall); }
+						break;
 
 						case sf::Keyboard::Space:
 						{
@@ -615,6 +624,15 @@ int main()
 							selectedSlider = nullptr;
 						}
 						break;
+						
+						#ifdef LSD_TRANSPARENCY
+						case sf::Keyboard::F8:
+						{
+							LSD_transparency_invertcolor = !LSD_transparency_invertcolor;
+							std::cout << "Piece Transparency: " << (LSD_transparency_invertcolor? "Inverted" : "Normal") << '\n';
+						}
+						break;
+						#endif
 
 						default:
 						break;
@@ -743,9 +761,10 @@ int main()
 				if (wasModified.front() == resetall) //otherwise the outline colors won't get reset?
 				{
 					std::cout << "RESETALL!\n";
-					isCoordtextColorlinked = true;
+					isCoordtextColorlinked = (!isLSDmode);
 					isOutlineColorShared = true;
-					//wasModified.clear();
+					outlinecolorDark.a = 0xFF;
+					outlinecolorLight.a = 0xFF;
 				}
 
 				for (SliderID S_ID : wasModified)
@@ -763,6 +782,10 @@ int main()
 								coordcolorDark = darksqColor;
 								wasModified.push_back(coordtextDark);
 							}
+							
+							#ifdef TILETEST_EXPERIMENT
+							ColorManager::s_tileColors[0] = darksqColor;
+							#endif
 						}
 						break;
 
@@ -777,6 +800,10 @@ int main()
 								coordcolorLight = lightsqColor;
 								wasModified.push_back(coordtextLight);
 							}
+							
+							#ifdef TILETEST_EXPERIMENT
+							ColorManager::s_tileColors[1] = lightsqColor;
+							#endif
 						}
 						break;
 
@@ -784,6 +811,10 @@ int main()
 						{
 							for (auto& I : darkSqIDs)
 							{ coordText[I].setFillColor(coordcolorLight); }
+							
+							#ifdef TILETEST_EXPERIMENT
+							ColorManager::s_coordColors[0] = coordcolorLight;
+							#endif
 						}
 						break;
 
@@ -791,6 +822,10 @@ int main()
 						{
 							for (auto& I : lightSqIDs)
 							{ coordText[I].setFillColor(coordcolorDark); }
+							
+							#ifdef TILETEST_EXPERIMENT
+							ColorManager::s_coordColors[1] = coordcolorDark;
+							#endif
 						}
 						break;
 
@@ -806,6 +841,11 @@ int main()
 								sqOutlineThicknessL = sqOutlineThicknessD;
 								wasModified.push_back(outlineThicknessL); //not an infinite loop because std::set doesn't allow duplicates
 							}
+							
+							#ifdef TILETEST_EXPERIMENT
+							int currentsign = (isEditingLightColors? sqOutlineSignLight : sqOutlineSignDark);
+							ColorManager::s_outlineWidth = float(currentsign) * sqOutlineThicknessD;
+							#endif
 						}
 						break;
 
@@ -821,6 +861,11 @@ int main()
 								sqOutlineThicknessD = sqOutlineThicknessL;
 								wasModified.push_back(outlineThicknessD); //This doesn't work because this enum is a lesser value, so we've already traversed past this in the for-loop
 							}
+							
+							#ifdef TILETEST_EXPERIMENT
+							int currentsign = (isEditingLightColors? sqOutlineSignLight : sqOutlineSignDark);
+							ColorManager::s_outlineWidth = float(currentsign) * sqOutlineThicknessL;
+							#endif
 						}
 						break;
 
@@ -836,6 +881,10 @@ int main()
 
 								for (auto& Sq : SquareTable)
 								{ Sq.setOutlineColor(outlinecolorLight); } //doesn't matter which we choose if it's shared
+								
+								#ifdef TILETEST_EXPERIMENT
+								for (sf::Color& OC: ColorManager::s_outlineColors) { OC = outlinecolorLight; }
+								#endif
 							}
 							else
 							{
@@ -844,6 +893,10 @@ int main()
 								// { SquareTable[I].setOutlineColor(((isEditingLightColors)? outlinecolorLight : outlinecolorDark)); }
 								for (int& I : ((S_ID == outlineLight)? lightSqIDs : darkSqIDs))
 								{ SquareTable[I].setOutlineColor(((S_ID == outlineLight)? outlinecolorLight : outlinecolorDark)); }
+								
+								#ifdef TILETEST_EXPERIMENT
+								ColorManager::s_outlineColors[(S_ID == outlineLight)] = ((S_ID == outlineLight)? outlinecolorLight : outlinecolorDark);
+								#endif
 							}
 						}
 						break;
@@ -866,6 +919,9 @@ int main()
 					outlinecolorLight.a = ((lightsqColor.r + lightsqColor.g + lightsqColor.b) / 3);
 					// outlinecolorDark.a = ((outlinecolorDark.r + outlinecolorDark.g + outlinecolorDark.b) / 3);
 					// outlinecolorLight.a = ((outlinecolorLight.r + outlinecolorLight.g + outlinecolorLight.b) / 3);
+				} else {
+					outlinecolorDark.a = 0xFF;
+					outlinecolorLight.a = 0xFF;
 				}
 
 				for (auto& Sq : SquareTable)
@@ -886,13 +942,14 @@ int main()
 					#ifdef LSD_TRANSPARENCY
 					if (Sq.isOccupied)
 					{
-						// make white areas of pieces effectively transparent
-						sf::Color fillcolor = Sq.getFillColor();
-						if(isCoordtextColorlinked) {
-							fillcolor.a = 0; // invert color when checkbox is enabled
-							Sq.occupyingPiece->m_Sprite.setColor(sf::Color::White - fillcolor);
+						if (LSD_transparency_invertcolor) {
+							// subtle colormixing - slightly smoother and more consistent contrast
+							/*sf::Color fillcolor = Sq.getFillColor() * lightsqColor * darksqColor;
+							Sq.occupyingPiece->m_Sprite.setColor((Sq.isDark? lightsqColor : darksqColor) + fillcolor);*/
+							Sq.occupyingPiece->m_Sprite.setColor((Sq.isDark? lightsqColor : darksqColor));
 						} else {
-							Sq.occupyingPiece->m_Sprite.setColor(fillcolor);
+							// make white areas of pieces effectively transparent
+							Sq.occupyingPiece->m_Sprite.setColor(Sq.getFillColor());
 						}
 					}
 					#endif
@@ -1211,7 +1268,7 @@ int main()
 				isPieceSelected = false;
 				isSquareSelected = false;
 				isDraggingPiece = false;
-				isTriggerResize = true;
+				isTriggerResize = true; // TODO: make it better than this
 
 				//cancelling reshape mode
 				if (isReshapeMode && (boardWindowEvent.key.code != sf::Keyboard::S) && (boardWindowEvent.key.code != sf::Keyboard::LShift))
@@ -1526,8 +1583,8 @@ int main()
 						break;
 					}
 
-					std::thread(Fish::EngineTest).detach();
-					//Fish::EngineTest();
+					//std::thread(Fish::EngineTest).detach();
+					Fish::EngineTest();
 				}
 				break;
 
@@ -1584,6 +1641,15 @@ int main()
 					 colorWindow.setPosition(boardWindow.getPosition() - sf::Vector2i(306,0)));	//set to left of boardwindow
 				}
 				break;
+
+				#ifdef TILETEST_EXPERIMENT
+				case sf::Keyboard::F8:
+				{
+					showTestTiles = !showTestTiles;
+					std::cout << "TestTiles: " << (showTestTiles? "Enabled" : "Disabled") << '\n';
+				}
+				break;
+				#endif
 
 				case sf::Keyboard::Tilde:
 				{
@@ -1767,6 +1833,10 @@ int main()
 					if (isDrawMovecircles)
 					{
 						((isDrawOppMovecircles) ? (std::cout << "Opponent movetable highlights disabled \n", isDrawOppMovecircles = false) : (std::cout << "Opponent movetable highlights enabled \n", isDrawOppMovecircles = true));
+					} else {
+						std::cout << "Opponent movetable highlights unchanged ";
+						std::cout << '(' << ((isDrawOppMovecircles) ? "enabled":"disabled") << ')';
+						std::cout << " [movetable highlights are disabled] \n";
 					}
 				}
 				break;
@@ -2371,7 +2441,7 @@ int main()
 		//MOVED FROM TOP OF FRAMELOOP//
 
 		//setup mode erasing pieces & placing pieces
-		if ((isSetupMode) && (hoveredSq) && (sf::Mouse::isButtonPressed(sf::Mouse::Right) || sf::Mouse::isButtonPressed(sf::Mouse::Left)))
+		if (isSetupMode && hoveredSq && (sf::Mouse::isButtonPressed(sf::Mouse::Right) || (boardWindow.hasFocus() && sf::Mouse::isButtonPressed(sf::Mouse::Left))))
 		{
 			//static int lastChanged{-1}; //unused
 			//int targetSq = hoveredSq->m_ID; //also unused
@@ -2398,7 +2468,7 @@ int main()
 
 		//reshaping board
 		//this needs to affect "columnHeight" map, otherwise generate-board will undo this
-		if ((isReshapeMode) && (hoveredSq) && (sf::Mouse::isButtonPressed(sf::Mouse::Right) || sf::Mouse::isButtonPressed(sf::Mouse::Left)))
+		if (boardWindow.hasFocus() && isReshapeMode && hoveredSq && (sf::Mouse::isButtonPressed(sf::Mouse::Right) || sf::Mouse::isButtonPressed(sf::Mouse::Left)))
 		{
 			if (sf::Mouse::isButtonPressed(sf::Mouse::Right) && !hoveredSq->isExcluded)
 			{
@@ -2509,6 +2579,45 @@ int main()
 		}
 
 		isBoardloaded = true;
+		
+		#ifdef TILETEST_EXPERIMENT
+		//Drawing tiles with varying number of sides
+ 		if(showTestTiles)
+		{
+			if (isLSDmode)
+			{
+				ColorManager::s_tileColors[0] = darksqColor;
+				ColorManager::s_tileColors[1] = lightsqColor;
+				ColorManager::s_coordColors[1] = coordcolorDark;
+				ColorManager::s_coordColors[0] = coordcolorLight;
+				ColorManager::s_outlineColors[0] = outlinecolorDark;
+				ColorManager::s_outlineColors[1] = outlinecolorLight;
+				if (isOutlineColorShared) {
+					ColorManager::s_outlineWidth = (isEditingLightColors?
+						sqOutlineThicknessL * float(sqOutlineSignLight):
+						sqOutlineThicknessD * float(sqOutlineSignDark));
+				} else {
+					ColorManager::s_outlineWidth = (
+						(sqOutlineThicknessL*float(sqOutlineSignLight)) + 
+						(sqOutlineThicknessD*float(sqOutlineSignDark))) * 0.5f;
+				}
+				//ColorManager::s_coordSize = coordTextsize;
+			}
+			
+			for (BoardTile& T : testTiles)
+			{
+				T.Rotate(1);
+				T.FetchColors();
+				boardWindow.draw(T);
+			}
+			for (CustomTile& T : customTiles)
+			{
+				T.Rotate(1);
+				T.FetchColors();
+				boardWindow.draw(T);
+			}
+		}
+		#endif
 
 		//DRAWING STUFF//
 		//Ideally we would only do this repositioning/rescaling if !isBoardLoaded, but it's not working properly (probably because everything else is rescaled at the start of frameloop instead of bottom)
@@ -2747,22 +2856,6 @@ int main()
 			boardWindow.draw(fpsText);
 		}
 
-		#ifdef TILETEST_EXPERIMENT
-		//Drawing tiles with varying number of sides
- 		if(isDEBUG)
-		{
-			for (auto& T : testTiles)
-			{
-				T.rotate(1);
-				boardWindow.draw(T);
-			}
-			for (sf::ConvexShape& T : customTiles)
-			{
-				T.rotate(1);
-				boardWindow.draw(T);
-			}
-		}
-		#endif
 		
 		#ifdef TEST_SPRITESHEET
 		boardWindow.draw(sf::Sprite(testSpriteSheet.getTexture()));

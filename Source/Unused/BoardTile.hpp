@@ -55,7 +55,10 @@ private:
 
 public:
 
+	// implementing the SFML 'draw' function for this class
+	virtual void draw(sf::RenderTarget& target, sf::RenderStates states) const override;
 	void FetchColors(); //fetch all values from ColorManager. This includes coord-text.
+	void Rotate(float angle);
 	
 	virtual sf::Vector2f getPoint(std::size_t index) const
 	{
@@ -83,9 +86,13 @@ public:
 		setOrigin(width,width);
 		setRotation(180 / sides); //orientate it so that orthogonals are always up //only if it has even number of sides
 		setPosition(position);
-		move(width,width);
+		//move(width,width);
+		move(60,60); // half of 120 (real default squaresize)
 
 		FetchColors();
+		m_coord.move(position);
+		m_coord.setOrigin(48,16);
+		m_coord.move(48,16);
 	}
 };
 
@@ -100,9 +107,12 @@ private:
 
 public:
 
+	// implementing the SFML 'draw' function for this class
+	virtual void draw(sf::RenderTarget& target, sf::RenderStates states) const override;
 	void FetchColors(); //fetch all values from ColorManager. This includes coord-text.
+	void Rotate(float angle);
 
-	BoardTile(int id,std::string nameString,sf::Vector2f position,int colorIndex,float radius = 96,u_long sides = 4)
+	BoardTile(int id, std::string nameString, sf::Vector2f position, int colorIndex, float radius = 96, u_long sides = 4)
 		: //sf::ConvexShape{ sides },
 		sf::CircleShape{ radius, sides }, //tile size should actually be (radius-outlineThickness)
 		m_ID{ id },
@@ -115,9 +125,13 @@ public:
 		setOrigin(radius,radius);
 		setRotation(180 / sides); //orientate it so that orthogonals are always up //only if it has even number of sides
 		setPosition(position);
-		move(radius,radius);
+		//move(radius,radius);
+		move(60,60); // half of 120 (real default squaresize)
 
 		FetchColors();
+		m_coord.move(position);
+		m_coord.move(radius,radius);
+		m_coord.setOrigin(32,16);
 	}
 };
 
