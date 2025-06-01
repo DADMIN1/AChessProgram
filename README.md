@@ -6,9 +6,7 @@ My first program. \
 
 ## Prerequisites
 
-GCC-10 or later \
-Boost libraries \
-SFML 2.5+
+GCC-13 and Boost libraries
 
 
 ## Screenshots

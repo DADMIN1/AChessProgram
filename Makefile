@@ -4,44 +4,50 @@
 
 PROJECT_DIR := $(shell realpath .)
 
-DEBUG_BUILD_DIR := $(PROJECT_DIR)/build_DEBUG #Must define seperately for clean command
-RELEASE_BUILD_DIR := $(PROJECT_DIR)/build_RELEASE #We need a seperate build directory for this because EVERY file in the project has to be built/rebuilt with or without asserts; otherwise we'd be forced to either re-compile everything or get an incorrect compilation
+DEBUG_BUILD_DIR := build_DEBUG #Must define seperately for clean command
+RELEASE_BUILD_DIR := build_RELEASE #We need a seperate build directory for this because EVERY file in the project has to be built/rebuilt with or without asserts; otherwise we'd be forced to either re-compile everything or get an incorrect compilation
 MAKEFLAGS += -j
 #MAKEFLAGS += -j8 #causes eight(identical) make-jobs to be spawned
-#MAKEFLAGS += --output-sync=target #ensures that only one job is printing output at a time; and is only displayed after the entire recipie is completed
+#MAKEFLAGS += --output-sync=target #ensures that only one job is printing output at a time; and is only displayed after the entire recipe is completed
 MAKEFLAGS += --warn-undefined-variables
 
 ifdef DEBUG
 #BUILD_DIR := $(DEBUG_BUILD_DIR) #can't do this, for some reason
-BUILD_DIR := $(PROJECT_DIR)/build_DEBUG
+BUILD_DIR := build_DEBUG
 TARGET_EXEC := Chess_DEBUG
 else
 	ifdef RELEASE
-	BUILD_DIR := $(PROJECT_DIR)/build_RELEASE
+	BUILD_DIR := build_RELEASE
 	TARGET_EXEC := Chess_RELEASE
 	else
-	BUILD_DIR := $(PROJECT_DIR)/build
+	BUILD_DIR := build
 	TARGET_EXEC := Chess
 	endif
 endif
 
 
-SRC_DIRS += $(PROJECT_DIR)/Source
+SRC_DIRS += Source/
 #SRC_DIRS += $(shell find $(PROJECT_DIR)/Source -mindepth 1 -type d -printf "%P\n")
-SRC_DIRS += $(shell find $(PROJECT_DIR)/Source -mindepth 1 -type d -printf "$(PROJECT_DIR)/Source/%P\n")
+SRC_DIRS += $(shell find $(PROJECT_DIR)/Source -mindepth 1 -type d -printf "Source/%P/\n")
 # finding all subdirectories under 'Source'. mindepth=1 prevents it from printing an empty line (for ./Source itself)
 # the final part of the line appends the result ("%P") to "./Source/", and then seperates them with a space (instead of "\n")
-SRC_DIRS += $(PROJECT_DIR)/Bromeon/Thor_src
 
-#BUILD_SUBDIRS := $(patsubst $(PROJECT_DIR)%, ./build%, $(SRC_DIRS))
-BUILD_SUBDIRS := $(patsubst $(PROJECT_DIR)%,$(BUILD_DIR)%,$(SRC_DIRS))
+# adding subdirectories as paths to search for includes; -iquote only applies to includes that use: "x.h" instead of: <x.h>
+IQUOTES := $(addprefix -iquote , ${SRC_DIRS})
+
+# only add Thor-sources after iquotes have been defined - so that it is not included
+SRC_DIRS += external/Bromeon/Thor_src/
+
+
+#BUILD_SUBDIRS := $(patsubst $(PROJECT_DIR)%,$(BUILD_DIR)%,$(SRC_DIRS))
+BUILD_SUBDIRS := $(patsubst %,$(BUILD_DIR)/%,$(SRC_DIRS))
 # This creates a subdirectory in BUILD_SUBDIR for each source-subdirectory through text-replacement (output includes the BUILD_DIR itself)
-# Both lines work; the first is more readable, but the second should be better
 
 # Find all the C and C++ files we want to compile
 # Note the single quotes around the * expressions. Make will incorrectly expand these otherwise.
 # Every .cpp and .o file, EVEN THOSE IN SUBDIRECTORIES, will be included by these commands
-SRCS := $(shell find $(PROJECT_DIR) -mindepth 1 -name '*.cpp' -printf "%P\n")
+SRCS := $(shell find $(PROJECT_DIR)/Source -mindepth 1 -maxdepth 3 -name '*.cpp' -printf "Source/%P\n")
+SRCS += $(shell find $(PROJECT_DIR)/external/Bromeon/Thor_src -maxdepth 1 -name '*.cpp' -printf "external/Bromeon/Thor_src/%P\n")
 # The last part of the command (printf...) causes the filenames to be printed/returned without the path. This is important because otherwise you'd get doubled '//' or './' during the compile step
 # Maxdepth 1 is to temporarily ignore the subfolders (only .cpp files in parent folder)
 #SRCS := $(shell find $(SRC_DIRS) -mindepth 1 -maxdepth 1 -name '*.cpp' -printf "%P\n") #this is functionally the same as using "%F\n"
@@ -59,15 +65,10 @@ DEPS := $(OBJS:.o=.d)
 #minimum version for "include enum" declarations is g++11
 CXX := g++-13
 
-# adding subdirectories as paths to search for includes; -iquote only applies to includes that use: "x.h" instead of: <x.h>
-#CPPFLAGS := $(addprefix -iquote , $(SRC_DIRS))
-# this makes the output totally unreadable, but whatever.
-
-# stripping the project-directory from each path - infinitely more readable
-CPPFLAGS := $(addprefix -iquote , $(patsubst $(PROJECT_DIR)/%,%,$(SRC_DIRS)))
+CPPFLAGS := ${IQUOTES}
 
 # additional headers for Thor/Aurora/effolkronium; -isystem only applies to unquoted includes: <x.h>
-CPPFLAGS += -isystem "${PROJECT_DIR}/Bromeon/" -isystem "${PROJECT_DIR}/"
+CPPFLAGS += -isystem "external/" -isystem "external/Bromeon/" -isystem "external/SFML-2.6.2/"
 
 # The -MMD and -MP flags together create dependency-files for us! Those additional output files will have .d instead of .o as the output.
 # -H flag traces/prints the included headers recursively #--trace does the same thing? There is literally no documentation on these anywhere
@@ -110,12 +111,12 @@ endif
 # the order that SFML is linked is important! sfml-system must be last!
 LDFLAGS := -lsfml-graphics -lsfml-window -lsfml-audio# -lsfml-network
 LDFLAGS += -lsfml-system
-#LDFLAGS += -lthor
 #LDFLAGS += -pg #generates profiling information. Also has to be added to CPPFLAGS???
-##### I don't seem to have debug libraries compiled/installed for anything, or static libraries. Whatever.
+# TODO: debug-build should link to the '-d' (debug) libaries instead
+# TODO: use the static archives instead of dynamic-link
 
-# linker flags so that libthor.so can be found
-#LDFLAGS += -Wl,-rpath,${PROJECT_DIR}
+# linker flags passed to locate SFML libraries
+LDFLAGS += -Wl,-rpath,"external/SFML-2.6.2/lib/"
 
 #http://gcc.gnu.org/onlinedocs/gccint/LTO-Overview.html#LTO-Overview
 # http://gcc.gnu.org/onlinedocs/gcc/Optimize-Options.html
@@ -163,7 +164,7 @@ symlink: $(BUILD_DIR)/$(TARGET_EXEC)
 #.DEFAULT_GOAL := $(BUILD_DIR)/$(TARGET_EXEC)
 # The final build step; linking obj files
 $(BUILD_DIR)/$(TARGET_EXEC): $(BUILD_SUBDIRS) $(OBJS)
-	$(CXX) $(CPPFLAGS) $(OBJS) -o $@ $(LDFLAGS)
+	$(CXX) -L"external/SFML-2.6.2/lib/" $(CPPFLAGS) $(OBJS) -o $@ $(LDFLAGS)
 
 # add project-dir to linking path when using libthor.so
 # $(CXX) -L${PROJECT_DIR} $(CPPFLAGS) $(OBJS) -o $@ $(LDFLAGS)
@@ -179,8 +180,7 @@ $(BUILD_DIR)/%.o: %.cpp Makefile
 
 # make the subdirs if they don't exist
 $(BUILD_SUBDIRS): Makefile
-	mkdir -p $(BUILD_SUBDIRS)
-#this gets run three or four times when multithreading is enabled; doesn't really matter.
+	mkdir -p $@
 
 .PHONY: clean
 clean:
