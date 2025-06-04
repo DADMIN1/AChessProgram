@@ -262,7 +262,7 @@ FENstruct LoadFEN(std::string FEN, boost::bimap<SwitchName, char> FEN_MAP)
 	}
 	//the "PlacePiece" call in the above loop sets (default) Piece-attributes and adds an entry to SquareStorage
 
-// now setting castle-rights
+	// now setting castle-rights
 	auto castleRightsContains = [&parsedFEN](char F)->bool {return (parsedFEN.castleRights.find(F) != parsedFEN.castleRights.npos); };
 
 	SetCastleFlags(wSquareStorage, castleRightsContains('K'), castleRightsContains('Q'));
@@ -272,6 +272,7 @@ FENstruct LoadFEN(std::string FEN, boost::bimap<SwitchName, char> FEN_MAP)
 
 	return parsedFEN;
 }
+
 
 std::string WriteFEN(std::vector<Boardsquare>& SqRef)
 {
@@ -338,6 +339,7 @@ std::string WriteFEN(std::vector<Boardsquare>& SqRef)
 	return FEN.str();
 }
 
+
 //if no parameters are passed, it defaults to the currentRuleset setuptype
 void initialPieceSetup(Setup::Preset SetupType)
 {
@@ -346,8 +348,6 @@ void initialPieceSetup(Setup::Preset SetupType)
 	ClearBoard();
 	GenerateBoard(false); // otherwise the squares remain marked as "occupied". Doesn't change boardsize
 
-	//std::multimap<SwitchName, std::pair{int,int}> initialSetupMap{}; //Stores m_PieceType (SwitchName) and the column/row the piece is on
-
 	bool isSetupWhite{true};
 	bool isSetupBlack{true};
 
@@ -355,6 +355,11 @@ void initialPieceSetup(Setup::Preset SetupType)
 	{
 		isSetupBlack = false;
 	}
+	
+	// pawn sets for superRandom and horde
+	const std::set<SwitchName>  pawnTypes{wPawn, bPawn, wHoplite, bHoplite, wFerz, bFerz};
+	const std::set<SwitchName> wPawnTypes{wPawn, wHoplite, wFerz};
+	const std::set<SwitchName> bPawnTypes{bPawn, bHoplite, bFerz};
 
 SetupAgain:
 
@@ -397,44 +402,43 @@ SetupAgain:
 			PlacePiece(wPawn, s, 2);
 			PlacePiece(bHoplite, s, numRows - 1);
 
-				if ((columnMinusOne % 7) == 4) //E file
-				{
-					PlacePiece(wKing, s, 1);
-					PlacePiece(bCaptain, s, numRows); // formula works for 4
-//					spi = 2; //maybe we need this anyway, because the else statements only trigger if this is false?
-				}
-				else if ((columnMinusOne % 7) < 4)										   // RNBQK
-				{														   //A through D files
-					PlacePiece(SwitchName(columnMinusOne % 7), s, 1); //White pieces will be the same
+			if ((columnMinusOne % 7) == 4) //E file
+			{
+				PlacePiece(wKing, s, 1);
+				PlacePiece(bCaptain, s, numRows); // formula works for 4
+				// spi = 2; //maybe we need this anyway, because the else statements only trigger if this is false?
+			}
+			else if ((columnMinusOne % 7) < 4) // RNBQK
+			{	//A through D files
+				PlacePiece(SwitchName(columnMinusOne % 7), s, 1); //White pieces will be the same
 
-					spi = (columnMinusOne % 7);
-					//Spartan piece Order is Lieutenant,Strategos,King,Captain,Captain,King,Warlord,Lieutenant
-					if (spi == 2)
-						PlacePiece(bKing, s, numRows);
-					else
-					{
-						PlacePiece(SwitchName(bLieutenant + (2 * spi)), s, numRows);
-					}
-				}
-				else //E, F, G files (H is treated as A file) (does this actually run for s%7 == 4?)
-				{
-					PlacePiece(SwitchName(7 - (columnMinusOne % 7)), s, 1); //white
+				spi = (columnMinusOne % 7);
+				//Spartan piece Order is: Lieutenant,Strategos,King,Captain,Captain,King,Warlord,Lieutenant
+				if (spi == 2) PlacePiece(bKing, s, numRows);
+				else { PlacePiece(SwitchName(bLieutenant + (2 * spi)), s, numRows); }
+			}
+			else //E, F, G files (H is treated as A file) (does this actually run for s%7 == 4?)
+			{
+				PlacePiece(SwitchName(7 - (columnMinusOne % 7)), s, 1); //white
 
-					spi = ((columnMinusOne % 7) % 3);
-					if (spi == 2)
-						PlacePiece(bKing, s, numRows);
-					else
-					{
-						PlacePiece(SwitchName(bLieutenant + abs((4 - spi) * 2)), s, numRows);
-					}
-				}
+				spi = ((columnMinusOne % 7) % 3);
+				if (spi == 2) PlacePiece(bKing, s, numRows);
+				else { PlacePiece(SwitchName(bLieutenant + abs((4 - spi) * 2)), s, numRows); }
+			}
 		}
-		break;
 	} //end spartan piece setup
 	break;
 
 	case Setup::Preset::horde:
 	{
+		const bool isRandomPawns = !isSetupBlack; // controlled by asymmetric setup-option
+		auto aPawn = [&wPawnTypes, isRandomPawns](int rerolls=3) -> SwitchName {
+			SwitchName nextPawn {*effolkronium::random_static::get(wPawnTypes)};
+			while ((rerolls-- > 0) && (nextPawn != wPawn)) // rerolling to favor normal pawns
+				nextPawn = *effolkronium::random_static::get(wPawnTypes);
+			return (isRandomPawns? nextPawn : wPawn);
+		};
+		
 		for (int s{1}; s <= numColumns; ++s)
 		{
 			int columnMinusOne = (s-1); //loop used to start at 0
@@ -443,16 +447,20 @@ SetupAgain:
 			PlacePiece(bPawn, s, numRows - 1);
 
 			if ((columnMinusOne % 7) < 5) // RNBQK
-				{ PlacePiece(SwitchName((columnMinusOne % 7) + 7), s, numRows);	}
-				else // BN, and then it repeats
-				{ PlacePiece(SwitchName((7 - (columnMinusOne % 7)) + 7), s, numRows);	}
-
+			{ PlacePiece(SwitchName((columnMinusOne % 7) + 7), s, numRows); }
+			else // BN, and then it repeats
+			{ PlacePiece(SwitchName((7 - (columnMinusOne % 7)) + 7), s, numRows); }
 
 			// WHITE PAWNS new formula
 			int R{ 1 };
 			while ((R <= wTerritory + 1) && (R < numRows - 3)) //always one rank above territory (numRows/2.6)
 			{
-				PlacePiece(wPawn, s, R);
+				SwitchName nextPawn = aPawn(std::min(R-3,3)); //reroll more often on higher rows; capping at 3
+				// mirroring the pawns for symmetry
+				if (columnMinusOne < (numColumns/2)) {
+					PlacePiece(nextPawn, s, R);
+					PlacePiece(nextPawn,numColumns - columnMinusOne, R);
+				} else { PlacePiece(aPawn(), s, R); }
 				R += 1;
 			}
 
@@ -480,8 +488,9 @@ SetupAgain:
 				{
 					if ((!nextLayerExcludes.contains(columnMinusOne)) && (columnMinusOne < (numColumns/2)))
 					{
-						PlacePiece(wPawn, s, R);
-						PlacePiece(wPawn,numColumns - columnMinusOne, R);
+						SwitchName nextPawn = aPawn(); // only roll once for symmetry
+						PlacePiece(nextPawn, s, R);
+						PlacePiece(nextPawn,numColumns - columnMinusOne, R);
 					}
 
 					for (auto e : excludesLayer1)
@@ -498,7 +507,7 @@ SetupAgain:
 				}
 			}
 
-		else //if ((numColumns % 2) != 0) //EXTRA ROWS FORMULA FOR ODD# OF COLUMNS
+			else //if ((numColumns % 2) != 0) //EXTRA ROWS FORMULA FOR ODD# OF COLUMNS
 			{
 				//Odd setups always have pawns on both ends
 				//std::set<int> excludesLayer1{}; //does not include 0 by default
@@ -510,8 +519,9 @@ SetupAgain:
 				{
 					if ((!nextLayerExcludes.contains(columnMinusOne)) && (columnMinusOne <= (numColumns/2)))
 					{
-						PlacePiece(wPawn, s, R);
-						PlacePiece(wPawn,numColumns - columnMinusOne, R);
+						SwitchName nextPawn = aPawn();
+						PlacePiece(nextPawn, s, R);
+						PlacePiece(nextPawn,numColumns - columnMinusOne, R);
 					}
 
 					//don't do this until AFTER the first iteration, otherwise you won't get the pawns on the edges
@@ -531,15 +541,15 @@ SetupAgain:
 				}
 			}
 		}
-		break;
 	} //End HORDE piece setup
+	break;
 
 	case Setup::Preset::stressTest:
-		for (auto& Sq : SquareTable)
-		{
-			PlacePiece(((Sq.isDark)? wQueen : bQueen), Sq.column, Sq.row);
-		}
-		break;
+	for (auto& Sq : SquareTable)
+	{
+		PlacePiece(((Sq.isDark)? wQueen : bQueen), Sq.column, Sq.row);
+	}
+	break;
 
 	case Setup::Preset::gothic:
 	{
@@ -595,17 +605,17 @@ SetupAgain:
 
 	case Setup::Preset::FischerRandom:
 	{
-		PieceQueue queue; //this is actually unused!?!?!? //it's not shadowing the more global queue because the goto statement would make that illegal?!
+		PieceQueue queue;
 
-		//If we're using a board smaller than 8x8, we'll need to restrict this range.
+		//TODO: If we're using a board smaller than 8x8, we'll need to restrict this range.
 		int positionID{effolkronium::random_static::get(1, 960)};
 
 		if (currentSetup.isSetupFromID)
 		{
 			int stored = ((isSetupWhite)? currentSetup.storedID : currentSetup.storedID_Black);
 
-			if (stored < 1) { std::cerr << "Illegal storedID! " << stored << " - below minimum\n"; currentSetup.isSetupFromID = false; }
-			else if (stored > 960) { std::cerr << "Illegal storedID! " << stored << " - above maximum\n"; currentSetup.isSetupFromID = false; }
+			if (stored < 1) { std::cerr << "Illegal storedID! " << stored << " - below minimum (1)\n"; currentSetup.isSetupFromID = false; }
+			else if (stored > 960) { std::cerr << "Illegal storedID! " << stored << " - above maximum (960)\n"; currentSetup.isSetupFromID = false; }
 			else //if storedID was illegal, positionID will retain it's randomly-generated value
 			{ positionID = stored; }
 
@@ -622,15 +632,21 @@ SetupAgain:
 			//if (isSetupBlack) //in case it IS symmetric, we need to copy this over
 			currentSetup.storedID_Black = positionID;
 		}
-
+		
+		auto PadNumber = [](int positionID) {
+			if (positionID < 99) std::cout << " ";
+			if (positionID <  9) std::cout << " ";
+			return positionID;
+		};
+		
 		if (currentSetup.Options.contains(Setup::Option::asymmetric) && isSetupBlack)
 		{
-			std::cout << "\nFischerRandom Position#: "
-				<< "Black: " << currentSetup.storedID_Black << " , "
-				<< "White: " << currentSetup.storedID << '\n';
+			std::cout << "FischerRandom Position#: "
+				<< "[Black: " << PadNumber(currentSetup.storedID_Black)  << "] "
+				<< "[White: " << PadNumber(currentSetup.storedID) << ']' << '\n';
 		}
 		else if (isSetupBlack)
-		std::cout << "\nFischerRandom Position#: " << positionID << "\t (range: [1, 960]) \v \n";
+		std::cout << "FischerRandom Position#: " << PadNumber(positionID) << "\n";
 
 
 		int magicNumber = (positionID - 1); //The formula for generating setups requires a range of [0,959]
@@ -677,17 +693,15 @@ SetupAgain:
 		queue.AddToQueue(wRook, *notTaken.rbegin(), 1);
 		queue.AddToQueue(wKing, *(++notTaken.begin()), 1);
 
-
+		// TODO: handle nonstandard boardsizes
 		PieceArray tempWhite;
 		tempWhite.swap(queue.preConstructed); //because we're going to add black pieces to the queue
 		for (auto& ptr : tempWhite)
 		{
-			if(isSetupWhite)
-			{queue.AddToQueue(wPawn, ptr->m_Column, 2);}
-			if (isSetupBlack)
-				{
-				queue.AddToQueue(bPawn, ptr->m_Column, 7);
-				queue.AddToQueue(SwitchName(ptr->m_PieceType+7), ptr->m_Column, 8);
+			if (isSetupWhite) { queue.AddToQueue(wPawn, ptr->m_Column, 2); }
+			if (isSetupBlack) {
+				queue.AddToQueue(bPawn, ptr->m_Column, numRows-1);
+				queue.AddToQueue(SwitchName(ptr->m_PieceType+7), ptr->m_Column, numRows);
 			}
 		}
 
@@ -715,8 +729,8 @@ SetupAgain:
 			goto SetupAgain;
 		}
 
-		break;
 	}// end of FischerRandom
+	break;
 
 	//Uses only the vanilla piece-set. No limits/minimums on piece-duplicates enforced. Symmetric.
 	case Setup::Preset::moreRandom:
@@ -747,25 +761,25 @@ SetupAgain:
 	} //end of moreRandom
 	break;
 
-	//all pieces, asymmetric
+	//all pieces, random pawns
 	case Setup::Preset::superRandom:
 	{
-		const static std::set<SwitchName> illegalNames{wPieceEnd, bPieceEnd, fairyPieceEnd, wTestPiece, bTestPiece, wPawn, bPawn};
-
-		if (isSetupWhite)
-		if (isSetupBlack)
+		const static std::set<SwitchName> illegalNames{wPieceEnd, bPieceEnd, fairyPieceEnd, wTestPiece, bTestPiece};
 
 		for (int x{1}; x <= numColumns; ++x)
 		{
-			if (isSetupWhite) PlacePiece(wPawn, x, 2); //placing pawns
-			if (isSetupBlack) PlacePiece(bPawn, x, numRows - 1);
-
-			int randPiece = effolkronium::random_static::get(0, static_cast<int>(fairyPieceEnd));
-
-			while (illegalNames.contains(SwitchName(randPiece)))
-			{
-				randPiece = effolkronium::random_static::get(0, static_cast<int>(fairyPieceEnd));
+			if (isSetupWhite && isSetupBlack) {
+				const static std::set<std::pair<SwitchName, SwitchName>> pawnTypes{{wPawn, bPawn}, {wHoplite, bHoplite}, {wFerz, bFerz}};
+				const auto& [wRandPawn, bRandPawn] = *effolkronium::random_static::get(pawnTypes);
+				PlacePiece(wRandPawn, x, 2); PlacePiece(bRandPawn, x, numRows - 1);
+			} else {
+				if (isSetupWhite) PlacePiece(*effolkronium::random_static::get(wPawnTypes), x, 2);
+				if (isSetupBlack) PlacePiece(*effolkronium::random_static::get(bPawnTypes), x, numRows - 1);
 			}
+
+			SwitchName randPiece = SwitchName(effolkronium::random_static::get(0, static_cast<int>(fairyPieceEnd)));
+			while (illegalNames.contains(SwitchName(randPiece)) || pawnTypes.contains(SwitchName(randPiece)))
+				randPiece = SwitchName(effolkronium::random_static::get(0, static_cast<int>(fairyPieceEnd)));
 
 			if (randPiece < wPieceEnd) //The sections for standard-pieces have a different layout from the fairy pieces
 			{
@@ -802,8 +816,8 @@ SetupAgain:
 			goto SetupAgain;
 		}
 
-		break;
 	} //end of superRandom
+	break;
 
 
 	} // end ruleset switch
@@ -814,6 +828,7 @@ SetupAgain:
 
 	return;
 } //End initialPieceSetup
+
 
 int FindMagicNumber(int magic, int remainder, int modulus) //returns -1 if it can't be found
 {
@@ -835,6 +850,7 @@ int FindMagicNumber(int magic, int remainder, int modulus) //returns -1 if it ca
 	return match;
 }
 
+
 int GetFischerRandomID (std::string rowFEN)
 {
 	int theID{0};
@@ -847,8 +863,6 @@ int GetFischerRandomID (std::string rowFEN)
 		return theID;
 	}
 
-	// std::multimap<SwitchName, int> columnMap;
-	// std::map<int, SwitchName> columnMap;
 	std::set<int> BishopColumns{};
 	std::set<int> KnightColumn{};
 	int QueenColumn{};

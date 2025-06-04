@@ -153,39 +153,39 @@ bool Ruleset::changeGamemode(std::string passedStr)
 	bool isRulesetValid{ false };
 
 	//random and superRandom can just be setup types, but 960 should be it's own game mode (castling rules, limited pieceset)
-	std::map<Mode,std::string> mapRules;
-	mapRules[mode_custom] = "custom"; //All other rulesets will be static, and are just copied into "CurrentRuleset"
-	mapRules[mode_vanilla] = "vanilla";
-	mapRules[mode_horde] = "horde";
-	mapRules[mode_gothic] = "gothic";
-	mapRules[mode_spartan] = "spartan";
-	mapRules[mode_FischerRandom] = "FischerRandom";
-	mapRules[mode_moreRandom] = "moreRandom";
-	mapRules[mode_superRandom] = "superRandom";
-	mapRules[mode_shogi] = "shogi";
-	mapRules[mode_crazyhouse] = "crazyhouse";
-	mapRules[mode_circe] = "circe";
-	mapRules[mode_scotch] = "scotch";
-	mapRules[mode_horde] = "horde";
-	mapRules[mode_botMatch] = "botmatch";
+	std::map<Mode, std::string> mapRules {
+		{mode_custom,        "custom"}, //All other rulesets will be static, and are just copied into "CurrentRuleset"
+		{mode_vanilla,       "vanilla"},
+		{mode_horde,         "horde"},
+		{mode_gothic,        "gothic"},
+		{mode_spartan,       "spartan"},
+		{mode_FischerRandom, "FischerRandom"},
+		{mode_moreRandom,    "moreRandom"},
+		{mode_superRandom,   "superRandom"},
+		{mode_shogi,         "shogi"},
+		{mode_crazyhouse,    "crazyhouse"},
+		{mode_circe,         "circe"},
+		{mode_scotch,        "scotch"},
+		{mode_horde,         "horde"},
+		{mode_botMatch,      "botmatch"},
+		{mode_stressTest,    "stresstest"},
+	};
 
-	mapRules[mode_stressTest] = "stresstest";
-	//End mapRules
-
-	// static std::string ruleInput;
 	static std::string ruleInput{"cancel"};
 	std::stringstream passedStrStream;
 	
 	if (!passedStr.empty())
 	{
+		if (isDEBUG)
 		std::cout << "PassedString = " << passedStr << '\n';
 		passedStrStream.str(passedStr);
 		passedStrStream >> ruleInput; //this doesn't actually remove the characters from stringstream
-
-		std::cout << "ruleInput now contains: " << ruleInput << '\n';
-		std::cout << "after extraction, passedStrStream contains: " << ((passedStrStream.str().empty())? "(empty)" : passedStrStream.str()) << '\n';
 		
-
+		if (isDEBUG) {
+			std::cout << "ruleInput now contains: " << ruleInput << '\n';
+			std::cout << "after extraction, passedStrStream contains: " << ((passedStrStream.str().empty())? "(empty)" : passedStrStream.str()) << '\n';
+			std::cout << "Skipped Input!\n";
+		}
 		goto SkipInput;
 	}
 
@@ -203,7 +203,6 @@ InputAgain:
 	//std::getline(std::cin, ruleInput);
 	while (!ruleInput.empty())
 	{
-		
 		//std::cin >> ruleInput;
 		std::getline(std::cin, ruleInput);
 		//std::cin.putback('\n');
@@ -211,38 +210,50 @@ InputAgain:
 	
 	std::cin >> ruleInput;
 	
-	if (ruleInput == "cancel")
-	{
-		std::ignore = std::system("clear"); //supress the compiler's "unused variable" warning
+	// accept '960' and 'random' as 'FischerRandom'
+	if (ruleInput == "960") ruleInput = "FischerRandom";
+	if (ruleInput.ends_with("random") || ruleInput.ends_with("Random")) { // correcting capitalization
+		if (ruleInput.starts_with("fischer")) ruleInput = "FischerRandom"; else
+		ruleInput = std::string{ruleInput, 0, (ruleInput.length()-6)}.append("Random");
+		if (ruleInput == "Random") ruleInput = "FischerRandom";
+	}
+	
+	if (ruleInput.starts_with("cancel") || ruleInput.starts_with("Cancel") || ruleInput.starts_with("CANCEL")) {
+		[[maybe_unused]] int status = std::system("clear"); //supress the compiler's "unused variable" warning
 		
 		std::cout << "\nRuleset change cancelled \v \n";
 		isRulesetValid = false;
 
 		return false;
 	}
+	
+	//if user entered "l", print the mode names
+	if ((ruleInput == "l") || (ruleInput == "L") || ruleInput.starts_with("List") || ruleInput.starts_with("LIST")) ruleInput = "list";
+	if (ruleInput == "list")
+	{
+		isRulesetValid = false;
+		std::cout << "\nGame Modes: \n";
+		for (const auto& [mode, modeName]: mapRules) {
+			std::cout << "  " << modeName << '\n';
+		}
+		std::cout << "\nEnter ruleset: \n";
+		goto InputAgain;
+	}
 
 SkipInput:
-	std::cout << "Skipped Input!\n";
-	
 	//iterating through list and either printing them out, or setting it as the current gamemode
-	for (auto& M : mapRules)
+	for (const auto& M : mapRules)
 	{
 		Ruleset::Mode R = M.first;
-		
-		if (ruleInput == "list") //if user entered "l", print the mode name
-		{
-			std::cout << mapRules[R] << '\n';
-			continue;
-		}
-		else if (mapRules[R] == ruleInput)
+		if (M.second == ruleInput)
 		{//RULESET-SPECIFIC ACTIONS PERFORMED HERE//
 			//gameMode = gametype(r); //will be set by next two lines
 			isRulesetValid = true;
 			rules = Ruleset{ R }; //getting the default values for the new ruleset
 
-//There needs to be a distinction made between mode switches that require a resize and those that don't
-			//We want to avoid restting the board if we don't have to
-//only resizes if the default is larger than the current
+			//There needs to be a distinction made between mode switches that require a resize and those that don't
+			//	We want to avoid resetting the board if we don't have to
+			//only resizes if the default is larger than the current
 			bool shouldResize{ false };
 			if (defaultBoardsize.first > numColumns)
 			{
@@ -295,14 +306,6 @@ SkipInput:
 
 			break;
 		}
-	}
-
-	if (ruleInput == "list")
-	{
-		isRulesetValid = false;
-		std::cout << '\v' << '\n';
-
-		goto InputAgain;
 	}
 
 	if (!isRulesetValid)

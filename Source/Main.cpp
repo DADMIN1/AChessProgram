@@ -1359,9 +1359,11 @@ int main()
 
 					if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::RShift) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LShift))
 					{
+						if (currentSetup.positionType != Setup::FischerRandom)
+							currentSetup.positionType  = Setup::FischerRandom;
+						
 						currentSetup.isSetupFromID = true;
-
-						std::cout << "enter initial-position ID (range:[1, 960]): \n";
+						std::cout << "enter initial-position ID (range:[1-960]): ";
 						std::cin >> currentSetup.storedID; //if this is invalid, it gets overwritten with a valid random number
 
 						if ((std::cin.peek() == ' '))
@@ -1953,14 +1955,14 @@ int main()
 					}
 
 					if(isSetupSymmetric)
-					{ std::cout << "Setup ID (range:[1, 960]): " << whiteSetupID << '\n'; }
+					{ std::cout << "Setup ID (range:[1-960]): " << whiteSetupID << '\n'; }
 					else
 					{
 						int blackSetupID = GetFischerRandomID(black_rowFEN); //We have to use this before doing a comparison between the two rowFEN-strings, because str_toupper() is a permanent conversion, I think.
 
-						std::cout << "Setup-IDs (range:[1, 960]): \t"
-							<< "Black: " << blackSetupID << " , "
-							<< "White: " << whiteSetupID << '\n';
+						std::cout << "Setup-IDs (range:[1-960]): \t"
+							<< "[Black: " << blackSetupID << "] "
+							<< "[White: " << whiteSetupID << '\n';
 					}
 					std::cout << "black-FEN: " << black_rowFEN << '\n';
 					std::cout << "white-FEN: " << white_rowFEN << '\n';

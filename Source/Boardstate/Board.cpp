@@ -147,6 +147,7 @@ void GenerateBoard(bool isResizingBoard) //totalSquares always equals numRows*nu
 		isTriggerResize = true; //This will trigger a window-resize
 	}
 
+	if (isDEBUG)
 	std::cout << "\nGenerating Boardsize: " << numColumns << 'x' << numRows << '\n';
 
 	while (c <= numColumns)
@@ -154,7 +155,7 @@ void GenerateBoard(bool isResizingBoard) //totalSquares always equals numRows*nu
 		//push back creates a copy, emplace_back constructs the element in-place
 		SquareTable.emplace_back(c,numRows,sqNum);
 
-		//if (isDEBUG)
+		if (isDEBUG)
 		{
 			std::stringstream tempString;
 			tempString << SquareTable.back().m_algCoord << '[' << sqNum << ']' << " || ";
@@ -171,7 +172,7 @@ void GenerateBoard(bool isResizingBoard) //totalSquares always equals numRows*nu
 		{
 			SquareTable.emplace_back(c,r,sqNum);
 
-			//if (isDEBUG)
+			if (isDEBUG)
 			{
 				std::stringstream tempString;
 				tempString << SquareTable.back().m_algCoord << '[' << sqNum << ']' << " || ";
@@ -185,7 +186,7 @@ void GenerateBoard(bool isResizingBoard) //totalSquares always equals numRows*nu
 			++sqNum;
 			--r;
 		}
-		//if (isDEBUG)
+		if (isDEBUG)
 		{ //puts a newline at the end of each completed column
 			std::cout << '\n';
 		}
@@ -201,6 +202,7 @@ void GenerateBoard(bool isResizingBoard) //totalSquares always equals numRows*nu
 	} */
 	//The problem is that move-generation assumes that edgedist actually refers to the end of the board, so diagonals and jump-moves won't be generated when the pieces are next to an excluded square inside of the board.
 
+	if (isDEBUG)
 	std::cout << "\v\n";
 	return;
 }
