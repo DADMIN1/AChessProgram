@@ -28,6 +28,9 @@
 bool showTestTiles{true}; //toggle with F8
 #endif
 
+#define NO_COORD_DISPLAY // disables coordinates on the board
+#undef NO_COORD_DISPLAY // comment to disable coords
+
 // draws all piece textures
 #define TEST_SPRITESHEET
 #undef TEST_SPRITESHEET
@@ -533,14 +536,17 @@ int main()
 		std::cerr << "failed to load TestTiles coordFont!\n"; exit(1);
 	}
 	std::vector<BoardTile> testTiles;
-	std::vector<CustomTile> customTiles;
-	for (int s{ 0 }; (s <= 7); ++s)
+	//std::vector<CustomTile> customTiles;
+	/*for (int s{ 0 }; (s <= 7); ++s)
 	{
 		float nwidth = 80.f;
 		if (s > 1) nwidth -= (s*3.f);
 		//id, algCoord, px-position, colorindex, radius, sides //last two are optional
 		testTiles.push_back(BoardTile(s,"TestTile",sf::Vector2f(120*s,0),((s+1)%2),nwidth,(s+3)));
 		customTiles.push_back(CustomTile(s,"CustomTile",sf::Vector2f(120*s,120),(s%2),nwidth,(s+3)));
+	}*/
+	for (Boardsquare& square: SquareTable) {
+		testTiles.emplace_back(square.m_ID, std::string(square.m_algCoord), square.getPosition(), !square.isDark, 68.f, 6);
 	}
 	#endif
 	
@@ -722,14 +728,15 @@ int main()
 				//LSDmode code here
 				if (isLSDmode)
 				{
-					if (SS.changeRate == 0.f) {
+					constexpr float mindelta = 0.1f;
+					while (fabs(SS.changeRate) <= mindelta) {
 						SS.changeRate = effolkronium::random_static::get(-1.0f, 1.0f);
 					}
 					
 					if (SS.currentValue >= 255.f)
 					{
 						SS.currentValue = 255.f;
-						SS.changeRate = effolkronium::random_static::get(-1.0f, -0.1f);
+						SS.changeRate = effolkronium::random_static::get(-1.0f, -mindelta);
 					}
 					else if (SS.currentValue <= 0.f)
 					{
@@ -742,7 +749,7 @@ int main()
 						{ sqOutlineSignLight *= -1; }
 
 						SS.currentValue = 0.f;
-						SS.changeRate = effolkronium::random_static::get(0.1f, 1.0f);
+						SS.changeRate = effolkronium::random_static::get(mindelta, 1.0f);
 					}
 
 					SS.currentValue += SS.changeRate;
@@ -2594,7 +2601,7 @@ int main()
 				ColorManager::s_coordColors[0] = coordcolorLight;
 				ColorManager::s_outlineColors[0] = outlinecolorDark;
 				ColorManager::s_outlineColors[1] = outlinecolorLight;
-				if (isOutlineColorShared) {
+				/*if (isOutlineColorShared) {
 					ColorManager::s_outlineWidth = (isEditingLightColors?
 						sqOutlineThicknessL * float(sqOutlineSignLight):
 						sqOutlineThicknessD * float(sqOutlineSignDark));
@@ -2602,25 +2609,47 @@ int main()
 					ColorManager::s_outlineWidth = (
 						(sqOutlineThicknessL*float(sqOutlineSignLight)) + 
 						(sqOutlineThicknessD*float(sqOutlineSignDark))) * 0.5f;
-				}
-				//ColorManager::s_coordSize = coordTextsize;
+				}*/
+				ColorManager::s_coordSize = coordTextsize;
 			}
 			
 			for (BoardTile& T : testTiles)
 			{
-				T.Rotate(1);
+				T.Rotate(-1);
 				T.FetchColors();
+				#ifndef NO_COORD_DISPLAY
+				T.ResizeCoord(coordTextsize, coordTextscale);
+				#else
+				T.ResizeCoord(0, 0);
+				#endif
 				boardWindow.draw(T);
+				
+				// rotate pieces with the squares
+				if (boardWindow.isOpen()) { // without this check, this block causes segfaults / coredump on exit
+					Boardsquare& parent = SquareTable[T.GetID()];
+					T.setOutlineThickness(
+						(parent.isDark)?
+						(sqOutlineThicknessD * float(sqOutlineSignDark) ):
+						(sqOutlineThicknessL * float(sqOutlineSignLight))
+					);
+					if (parent.isOccupied) {
+						parent.occupyingPiece->m_Sprite.setOrigin(60,60);
+						parent.occupyingPiece->m_Sprite.setPosition(T.getPosition());
+						parent.occupyingPiece->m_Sprite.setRotation(T.getRotation());
+					}
+				}
 			}
-			for (CustomTile& T : customTiles)
+			/*for (CustomTile& T : customTiles)
 			{
 				T.Rotate(1);
 				T.FetchColors();
+				T.ResizeCoord(coordTextsize, coordTextscale);
 				boardWindow.draw(T);
-			}
+			}*/
 		}
 		#endif
 
+		#ifndef NO_COORD_DISPLAY
 		//DRAWING STUFF//
 		//Ideally we would only do this repositioning/rescaling if !isBoardLoaded, but it's not working properly (probably because everything else is rescaled at the start of frameloop instead of bottom)
 		for (std::size_t I{0}; I < SquareTable.size(); ++I) //we have to reposition/resize text every frame, otherwise resizing looks super janky
@@ -2640,6 +2669,7 @@ int main()
 				boardWindow.draw(textStorage.DEBUG_SqIDstorage[I]);
 			}
 		}
+		#endif
 
 		wTerritoryLine.setPosition(0, ((!isFlipboard)?(numRows - wTerritory):(wTerritory))* SqHeight);
 		bTerritoryLine.setPosition(0, ((!isFlipboard)?(numRows - (bTerritory-1)):(bTerritory-1))* SqHeight);

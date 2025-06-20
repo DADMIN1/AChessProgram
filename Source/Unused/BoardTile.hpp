@@ -32,8 +32,8 @@ class CustomTile : public sf::ConvexShape //, public Boardsquare
 private:
 	const int m_ID; //if we're chaning the board size during gameplay, this will probably have to not be const?
 	const int m_colorIndex; //index ColorManger's tileColors with this number to get the color.
-	sf::Text m_coord;
 	bool m_isOccupied;
+	sf::Text m_coord;
 	
 	//sf::VertexArray m_vertices{};
 	//sf::Texture m_texture{};
@@ -54,11 +54,14 @@ private:
 	}*/
 
 public:
-
 	// implementing the SFML 'draw' function for this class
 	virtual void draw(sf::RenderTarget& target, sf::RenderStates states) const override;
 	void FetchColors(); //fetch all values from ColorManager. This includes coord-text.
 	void Rotate(float angle);
+	void ResizeCoord(unsigned int charsz, float scale) {
+		m_coord.setCharacterSize(charsz);
+		m_coord.setScale(scale, scale);
+	}
 	
 	virtual sf::Vector2f getPoint(std::size_t index) const
 	{
@@ -77,8 +80,8 @@ public:
 		radius{width},
 		m_ID{ id },
 		m_colorIndex{ colorIndex },
-		m_coord{ nameString , ColorManager::s_coordFont , ColorManager::s_coordSize },
-		m_isOccupied{ false }
+		m_isOccupied{ false },
+		m_coord{ nameString , ColorManager::s_coordFont , ColorManager::s_coordSize }
 	{
 		//colorindex will always = (id % (sides/2)), because that's how many unique colors we need?
 			//we'll have to modify the color-array so that the lightsq-color is always last, instead of second
@@ -100,25 +103,32 @@ public:
 class BoardTile : virtual public sf::CircleShape //I don't want to deal with setting points. Instead we'll have to set rotation.
 {
 private:
-	const int m_ID; //if we're chaning the board size during gameplay, this will probably have to not be const?
+	const int m_ID; //if we're changing the board size during gameplay, this will probably have to not be const?
 	const int m_colorIndex; //index ColorManger's tileColors with this number to get the color.
-	sf::Text m_coord;
 	bool m_isOccupied;
+	sf::Text m_coord;
 
 public:
-
 	// implementing the SFML 'draw' function for this class
 	virtual void draw(sf::RenderTarget& target, sf::RenderStates states) const override;
 	void FetchColors(); //fetch all values from ColorManager. This includes coord-text.
 	void Rotate(float angle);
+	int GetID() const { return m_ID; }
+	void ResizeCoord(unsigned int charsz, float scale) {
+		m_coord.setCharacterSize(charsz);
+		m_coord.setScale(scale, scale);
+	}
+	void Move(float x, float y) {
+		move(x, y); m_coord.move(x,y);
+	}
 
 	BoardTile(int id, std::string nameString, sf::Vector2f position, int colorIndex, float radius = 96, u_long sides = 4)
 		: //sf::ConvexShape{ sides },
 		sf::CircleShape{ radius, sides }, //tile size should actually be (radius-outlineThickness)
 		m_ID{ id },
 		m_colorIndex{ colorIndex },
-		m_coord{ nameString , ColorManager::s_coordFont , ColorManager::s_coordSize },
-		m_isOccupied{ false }
+		m_isOccupied{ false },
+		m_coord{ nameString , ColorManager::s_coordFont , ColorManager::s_coordSize }
 	{
 		//colorindex will always = (id % (sides/2)), because that's how many unique colors we need?
 			//we'll have to modify the color-array so that the lightsq-color is always last, instead of second
@@ -130,8 +140,8 @@ public:
 
 		FetchColors();
 		m_coord.move(position);
-		m_coord.move(radius,radius);
-		m_coord.setOrigin(32,16);
+		m_coord.move(60,60);
+		m_coord.setOrigin(radius-30,radius-30);
 	}
 };
 
