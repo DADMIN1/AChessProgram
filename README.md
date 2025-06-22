@@ -22,4 +22,9 @@ GCC-13 and Boost libraries
 
 !["reshape"](.github_assets/reshape.png)
 
+!["hex_board"](.github_assets/hex_board.png)
+
+|                                                       |                                                     |
+|-------------------------------------------------------|-----------------------------------------------------|
+| !["spinright"](.github_assets/hexagons_spinright.gif) | !["spinleft"](.github_assets/hexagons_spinleft.gif) |
 
